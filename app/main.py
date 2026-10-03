@@ -1,0 +1,81 @@
+import asyncio
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+
+from app import db, scheduler
+from app.demo_routes import api
+from app.router import handle_incoming
+
+log = logging.getLogger(__name__)
+LOOP_SECONDS = 60
+
+
+async def _background():
+    while True:
+        await asyncio.sleep(LOOP_SECONDS)
+        try:
+            scheduler.run_due()
+        except Exception:
+            log.exception("scheduler loop")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    db.init()
+    task = asyncio.create_task(_background())
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="Coffee Advisor", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o for o in os.environ.get("FRONTEND_ORIGIN", "*").split(",") if o],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(api)
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+@app.post("/sms")
+async def sms(request: Request):
+    """Africa's Talking webhook.
+
+    Parsed by hand rather than with Form(...): a missing field must not become
+    a 422. AT retries anything that is not a 2xx, so this always answers 200.
+    """
+    data = {}
+    try:
+        data = dict(await request.form())
+    except Exception:
+        pass
+    if not data:
+        try:
+            data = await request.json()
+        except Exception:
+            data = dict(request.query_params)
+
+    frm = str(data.get("from") or data.get("msisdn") or "")
+    text = str(data.get("text") or "")
+    at_id = str(data.get("id") or "")
+
+    if not frm.strip() or not text.strip():
+        return PlainTextResponse("ok")
+    if not db.seen_once(at_id):
+        return PlainTextResponse("ok")  # AT replayed a message we already handled
+
+    try:
+        handle_incoming(frm, text)
+    except Exception:
+        log.exception("handle_incoming failed for %s", frm)
+    return PlainTextResponse("ok")
