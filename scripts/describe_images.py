@@ -45,9 +45,7 @@ def describe_one(client, args, it, max_tokens: int) -> dict:
     styles = sample_styles(rng, args.n_variants)
     b64, media = encode_image(it.path)
     req = base_request(it.label, styles, b64, media)
-    resp = client.messages.create(
-        model=args.model, max_tokens=max_tokens, temperature=args.temperature, **req
-    )
+    resp = client.messages.create(model=args.model, max_tokens=max_tokens, **req)
     block = next((b for b in resp.content if b.type == "tool_use" and b.name == TOOL_NAME), None)
     if block is None:
         raise ValueError(f"no tool_use block (stop_reason={resp.stop_reason})")
@@ -75,7 +73,6 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_selection_args(ap)
     ap.add_argument("--workers", type=int, default=4, help="parallel requests (lower it if you hit rate limits)")
-    ap.add_argument("--temperature", type=float, default=1.0, help="higher = more varied wording")
     ap.add_argument("--max-cost", type=float, default=None,
                     help="stop launching new calls once the real spend reaches this many USD")
     ap.add_argument("--yes", action="store_true", help="do not ask for confirmation")
