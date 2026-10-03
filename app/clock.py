@@ -23,8 +23,8 @@ def now(phone):
     """Epoch seconds on this phone's clock."""
     if not is_demo(phone):
         return int(time.time())
-    row, _ = db.user(phone)
-    return slot_ts(row["day"], row["slot"])
+    row = db.get_user(phone)
+    return slot_ts(row["day"] if row else 0, row["slot"] if row else "morning")
 
 
 def slot_ts(day, slot):

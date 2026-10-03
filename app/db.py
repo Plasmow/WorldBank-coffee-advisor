@@ -85,6 +85,12 @@ def norm_phone(raw):
     return p
 
 
+def get_user(phone):
+    """Read-only: never creates a row, so callers like clock.now() cannot
+    silently consume a farmer's first contact."""
+    return connect().execute("SELECT * FROM users WHERE phone=?", (phone,)).fetchone()
+
+
 def user(phone):
     """Return (row, is_new), creating the row on first contact."""
     with lock:
