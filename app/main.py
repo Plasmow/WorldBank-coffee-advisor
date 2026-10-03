@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from app import db, scheduler
 from app.demo_routes import api
 from app.router import handle_incoming
+from app.ussd import api as ussd_api
 
 log = logging.getLogger(__name__)
 LOOP_SECONDS = 60
@@ -41,6 +42,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api)
+app.include_router(ussd_api)
 
 
 @app.get("/health")

@@ -13,5 +13,8 @@
   "unsure": "I am not sure what this is. A field agent has been alerted and will contact you.",
   "followup_q": "How are your coffee plants 3 days on? Reply 1 better, 2 same, 3 worse.",
   "followup_ok": "Good. Keep following the advice. Send a new message any time.",
-  "followup_worse": "Sorry to hear that. A field agent has been alerted and will contact you."
+  "followup_worse": "Sorry to hear that. A field agent has been alerted and will contact you.",
+  "ussd_menu": "Coffee Advisor\n1. Coffee prices\n2. Report a symptom\n3. Talk to an agent",
+  "ussd_ask_symptom": "Describe what you see on your coffee plants.",
+  "agent_requested": "An agent has been alerted and will contact you soon."
 }
