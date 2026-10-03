@@ -422,6 +422,22 @@ def add_selection_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--price-out", type=float, default=None, help="USD per million output tokens")
     ap.add_argument("--seed", type=int, default=0)
 
+def drop_unreadable(items: list[Item]) -> list[Item]:
+    good, bad = [], []
+    for it in items:
+        try:
+            with Image.open(it.path) as im:
+                im.load()
+            good.append(it)
+        except Exception as e:
+            bad.append((it, e))
+    if bad:
+        print(f"WARNING: {len(bad)} unreadable image(s) skipped:")
+        for it, e in bad[:20]:
+            print(f"  {it.id}: {type(e).__name__}")
+        if len(bad) > 20:
+            print(f"  ... and {len(bad) - 20} more")
+    return good
 
 def prepare_selection(args) -> list[Item]:
     """List, group and select images; drop ids already present in --out."""
@@ -434,6 +450,7 @@ def prepare_selection(args) -> list[Item]:
     print(f"Found {len(items)} images: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
     if unlabeled:
         print(f"  ({unlabeled} images ignored: no recognised class folder)")
+    items = drop_unreadable(items)
     print("Grouping near-duplicates (cached after the first run)...")
     assign_groups(items, args.dup_threshold, args.groups_cache)
     group_report(items)
