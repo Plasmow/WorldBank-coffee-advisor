@@ -24,3 +24,20 @@ def client(tmp_path, monkeypatch):
     db.init()
     with TestClient(main.app) as c:
         yield c
+
+
+@pytest.fixture
+def agent_sms(monkeypatch):
+    """Captures the SMS actually sent to AGENT_PHONE, not just the event."""
+    from app import at_client
+
+    sent = []
+    real = at_client.send_sms
+
+    def spy(to, text):
+        if to == os.environ.get("AGENT_PHONE"):
+            sent.append({"to": to, "text": text})
+        return real(to, text)
+
+    monkeypatch.setattr(at_client, "send_sms", spy)
+    return sent

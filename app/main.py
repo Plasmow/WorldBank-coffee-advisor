@@ -1,11 +1,12 @@
 import asyncio
 import logging
 import os
+import pathlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from app import db, scheduler
 from app.demo_routes import api
@@ -48,11 +49,13 @@ def health():
 
 
 @app.post("/sms")
-async def sms(request: Request):
+async def sms(request: Request, background: BackgroundTasks):
     """Africa's Talking webhook.
 
     Parsed by hand rather than with Form(...): a missing field must not become
-    a 422. AT retries anything that is not a 2xx, so this always answers 200.
+    a 422. AT retries anything that is not a 2xx, so this always answers 200,
+    and it answers before the analysis runs -- translation and classification
+    are far slower than the gateway's patience.
     """
     data = {}
     try:
@@ -74,8 +77,25 @@ async def sms(request: Request):
     if not db.seen_once(at_id):
         return PlainTextResponse("ok")  # AT replayed a message we already handled
 
+    background.add_task(_handle, frm, text)
+    return PlainTextResponse("ok")
+
+
+def _handle(frm, text):
     try:
         handle_incoming(frm, text)
     except Exception:
         log.exception("handle_incoming failed for %s", frm)
-    return PlainTextResponse("ok")
+
+
+@app.get("/demo", include_in_schema=False)
+def demo_page():
+    """Fallback demo page. The live one is on Lovable; web/index.html is the
+    spare tyre, and P3 owns it."""
+    page = pathlib.Path(__file__).resolve().parent.parent / "web" / "index.html"
+    if page.exists():
+        return HTMLResponse(page.read_text())
+    return HTMLResponse(
+        "<p>Demo page not built yet. The backend is up: "
+        "<a href='/docs'>/docs</a>, <a href='/health'>/health</a>.</p>"
+    )

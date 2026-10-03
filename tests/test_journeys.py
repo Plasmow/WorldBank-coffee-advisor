@@ -203,3 +203,42 @@ def test_templates_fit_in_one_sms(client):
     tpl = json.loads(pathlib.Path("data/templates.json").read_text())
     too_long = {k: len(v) for k, v in tpl.items() if isinstance(v, str) and len(v) > 160}
     assert not too_long
+
+
+# --- roadmap deltas -------------------------------------------------------
+
+
+def test_help_also_alerts_the_agent(client):
+    r = send(client, NOOR, "help")
+    assert any("PRICE" in m for m in r["replies"])
+    assert "agent_alert" in kinds(r)
+
+
+def test_inbound_is_stored_with_its_analysis(client):
+    r = send(client, NOOR, RUST)
+    incoming = [m for m in r["messages"] if m["direction"] == "in"][-1]
+    assert incoming["label"] == "leaf_rust"
+    assert incoming["decision"] == "answer"
+    assert incoming["proba"] > 0
+
+
+def test_keyword_messages_are_stored_without_an_analysis(client):
+    r = send(client, NOOR, "PRICE")
+    incoming = [m for m in r["messages"] if m["direction"] == "in"][-1]
+    assert incoming["label"] is None  # the AI chain was never asked
+
+
+def test_agent_alert_carries_number_original_translation_and_label(client, agent_sms):
+    send(client, NOOR, "zzzz qwerty")
+    alert = agent_sms[-1]
+    assert alert["to"] == "+256700000099"
+    for part in (NOOR, "zzzz qwerty", "other"):
+        assert part in alert["text"]
+
+
+def test_outbound_to_the_farmer_is_logged(client, caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="app.at_client"):
+        send(client, NOOR, RUST)
+    assert any("rust" in r.getMessage().lower() for r in caplog.records)

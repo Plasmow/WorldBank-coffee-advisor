@@ -32,7 +32,11 @@ CREATE TABLE IF NOT EXISTS messages(
   phone     TEXT NOT NULL,
   direction TEXT NOT NULL,
   text      TEXT NOT NULL,
-  ts        INTEGER NOT NULL
+  ts        INTEGER NOT NULL,
+  text_en   TEXT,
+  label     TEXT,
+  proba     REAL,
+  decision  TEXT
 );
 CREATE TABLE IF NOT EXISTS events(
   id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,9 +64,20 @@ def connect():
         _conn.row_factory = sqlite3.Row
         _conn.execute("PRAGMA journal_mode=WAL")
         _conn.executescript(SCHEMA)
+        _migrate(_conn)
         _conn.commit()
         _conn_path = path
     return _conn
+
+
+def _migrate(c):
+    """Databases created before the analysis columns existed (Replit keeps its
+    file across deploys)."""
+    for col, typ in (("text_en", "TEXT"), ("label", "TEXT"), ("proba", "REAL"), ("decision", "TEXT")):
+        try:
+            c.execute(f"ALTER TABLE messages ADD COLUMN {col} {typ}")
+        except sqlite3.OperationalError:
+            pass  # already there
 
 
 def init():
@@ -115,9 +130,28 @@ def set_user(phone, **fields):
 def record(phone, direction, text, ts):
     with lock:
         c = connect()
-        c.execute(
+        cur = c.execute(
             "INSERT INTO messages(phone, direction, text, ts) VALUES(?,?,?,?)",
             (phone, direction, text, ts),
+        )
+        c.commit()
+        return cur.lastrowid
+
+
+def annotate(message_id, result):
+    """Attach the analysis to the inbound message it came from, so every SMS
+    can be replayed with the verdict it got."""
+    with lock:
+        c = connect()
+        c.execute(
+            "UPDATE messages SET text_en=?, label=?, proba=?, decision=? WHERE id=?",
+            (
+                result.get("text_en"),
+                result.get("label"),
+                result.get("proba"),
+                result.get("decision"),
+                message_id,
+            ),
         )
         c.commit()
 
@@ -163,7 +197,9 @@ def seen_once(at_id):
 def messages(phone):
     # Ordered by id, not ts: two messages in the same demo slot share a timestamp.
     return connect().execute(
-        "SELECT id, direction, text, ts FROM messages WHERE phone=? ORDER BY id", (phone,)
+        "SELECT id, direction, text, ts, text_en, label, proba, decision "
+        "FROM messages WHERE phone=? ORDER BY id",
+        (phone,),
     ).fetchall()
 
 

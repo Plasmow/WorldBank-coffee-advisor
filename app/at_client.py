@@ -16,9 +16,9 @@ AT_URL = "https://api.sandbox.africastalking.com/version1/messaging"
 def send_sms(to, text):
     from app.clock import is_demo  # local: breaks the db -> at_client -> clock cycle
 
+    log.info("sms to %s: %s", to, text)
     if os.environ.get("DEMO_MODE") == "1" or is_demo(to):
-        log.info("demo sms to %s: %s", to, text)
-        return
+        return  # demo traffic never reaches the gateway
     try:
         httpx.post(
             AT_URL,

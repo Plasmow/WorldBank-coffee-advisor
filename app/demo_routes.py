@@ -39,7 +39,16 @@ def state(phone: str):
     return {
         "now": clock.iso(clock.now(phone)),
         "messages": [
-            {"id": m["id"], "direction": m["direction"], "text": m["text"], "ts": clock.iso(m["ts"])}
+            {
+                "id": m["id"],
+                "direction": m["direction"],
+                "text": m["text"],
+                "ts": clock.iso(m["ts"]),
+                "text_en": m["text_en"],
+                "label": m["label"],
+                "proba": m["proba"],
+                "decision": m["decision"],
+            }
             for m in db.messages(phone)
         ],
         "events": [

@@ -42,7 +42,7 @@ def handle_incoming(phone, text):
 
     ts = clock.now(phone)
     row, is_new = db.user(phone)
-    db.record(phone, "in", text, ts)
+    message_id = db.record(phone, "in", text, ts)
 
     sent = []
 
@@ -77,6 +77,7 @@ def handle_incoming(phone, text):
 
     if kw == "HELP":
         say("help")
+        alert_agent(phone, ts, text, note="asked for HELP")
         return sent
 
     if row["pending_kind"] == "followup":
@@ -84,7 +85,7 @@ def handle_incoming(phone, text):
         answer = FOLLOWUP_ANSWERS.get(text.strip())
         if answer == "worse":
             say("followup_worse")
-            _alert_agent(phone, ts, "follow-up: getting worse")
+            alert_agent(phone, ts, text, note="follow-up: getting worse")
             return sent
         if answer:
             say("followup_ok")
@@ -93,35 +94,54 @@ def handle_incoming(phone, text):
 
     if row["pending_kind"] == "clarify":
         db.set_user(phone, pending_kind=None, pending_text=None)
-        _respond(phone, ts, row, say, analyze(row["pending_text"], clarify_answer=text))
+        original = row["pending_text"] or text
+        result = analyze(original, clarify_answer=text)
+        db.annotate(message_id, result)
+        _respond(phone, ts, say, result, original)
         return sent
 
-    _respond(phone, ts, row, say, analyze(text))
+    result = analyze(text)
+    db.annotate(message_id, result)
+    _respond(phone, ts, say, result, text)
     return sent
 
 
-def _respond(phone, ts, row, say, result):
+def _respond(phone, ts, say, result, original):
     decision = result.get("decision")
 
     if decision == "clarify":
-        db.set_user(phone, pending_kind="clarify", pending_text=result.get("text_en") or "")
+        db.set_user(phone, pending_kind="clarify", pending_text=original)
         say("clarify")
         return
 
     if decision == "escalate":
         say("unsure")
-        _alert_agent(phone, ts, f"unclear report: {result.get('text_en', '')[:120]}")
+        alert_agent(phone, ts, original, result=result)
         return
 
-    say(result.get("template_id") or "Unknown", literal=False)
+    say(result.get("template_id") or "Unknown")
     if result.get("label") in ("leaf_rust", "phoma"):
         scheduler.schedule(phone, "followup", clock.followup_due(ts))
 
 
-def _alert_agent(phone, ts, reason):
-    """The human safety net. Recorded as an event so the demo page can show it."""
-    text = f"Coffee Advisor: {phone} needs a human. {reason}"
+def alert_agent(phone, ts, original, result=None, note=""):
+    """The human safety net, and the eliminating criterion of the challenge.
+
+    The agent needs enough to act without opening anything: who, what she
+    actually wrote, the English of it, and what the model thought.
+    """
+    lines = [f"Coffee Advisor: {phone} needs a human."]
+    if note:
+        lines.append(note)
+    lines.append(f"Said: {original}")
+    if result:
+        lines.append(f"English: {result.get('text_en') or original}")
+        lines.append(f"Proposed: {result.get('label', '?')} (p={result.get('proba', 0):.2f})")
+    text = "\n".join(lines)
+
     db.event(phone, "agent_alert", text, ts)
     agent = os.environ.get("AGENT_PHONE", "")
     if agent:
         at_client.send_sms(agent, text)
+    else:
+        log.warning("AGENT_PHONE unset: no human was alerted for %s", phone)
