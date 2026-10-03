@@ -1,0 +1,6 @@
+{
+    "Healthy":"The leaf looks healthy",
+    "Rust":"It looks like the leaf has rust",
+    "Phoma":"It looks like the leaf has phoma",
+    "Unknown":"It is unclear what the diagnostic is."
+}
