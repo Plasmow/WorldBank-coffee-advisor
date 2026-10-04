@@ -1,0 +1,4 @@
+# One-off model conversion only (scripts/convert_nllb_ct2.py).
+# torch reads the Hugging Face weights; the server never installs it.
+-r requirements-ai.txt
+torch>=2.2

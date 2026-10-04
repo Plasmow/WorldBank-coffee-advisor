@@ -1,0 +1,26 @@
+{
+  "source": "UCDA indicative farm-gate prices (as published by MAAIF, 2 Oct 2026 market update)",
+  "note": "Ranges as published; ugx_per_kg is the midpoint of the range",
+  "date": "2026-10-02",
+  "currency": "UGX",
+  "prices": [
+    {
+      "grade": "Kiboko",
+      "ugx_per_kg": 5500,
+      "ugx_per_kg_min": 5000,
+      "ugx_per_kg_max": 6000
+    },
+    {
+      "grade": "Robusta FAQ",
+      "ugx_per_kg": 12500,
+      "ugx_per_kg_min": 12000,
+      "ugx_per_kg_max": 13000
+    },
+    {
+      "grade": "Arabica parchment",
+      "ugx_per_kg": 15500,
+      "ugx_per_kg_min": 15000,
+      "ugx_per_kg_max": 16000
+    }
+  ]
+}

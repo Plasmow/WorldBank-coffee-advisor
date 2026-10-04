@@ -218,5 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-raw/
+
 data/raw/
+coffee_dataset/
+roadmap.pdf
+ai/nllb-600m-ct2/
+# Coffee Advisor
+data/app.db*
+model/nllb-ct2-int8/
