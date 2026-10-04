@@ -1,0 +1,20 @@
+# systemd unit: keeps the backend up across crashes, logouts and reboots.
+#   sudo cp deploy/coffee-advisor.service /etc/systemd/system/
+#   sudo systemctl enable --now coffee-advisor
+[Unit]
+Description=Coffee Advisor SMS backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=coffee
+WorkingDirectory=/opt/coffee-advisor
+# 127.0.0.1, not 0.0.0.0: Caddy terminates TLS and proxies to it, so the app
+# is never exposed to the internet without HTTPS in front.
+ExecStart=/opt/coffee-advisor/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+# .env sits next to the code and the app reads it at startup; no secrets here.
+
+[Install]
+WantedBy=multi-user.target
