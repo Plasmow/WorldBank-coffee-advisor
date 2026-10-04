@@ -31,14 +31,19 @@ Data (one or more of):
                          e.g. data/eval/hard_test.csv
 With no option: --split test and --csv data/eval/hard_test.csv (if it exists).
 
-Not done: robustness after NLLB translation (round-trip en -> sw/lg -> en). ai/translate.py is
-still empty and the NLLB weights are not downloaded.
+Robustness to translation (--roundtrip): every text is translated English -> Luganda -> English
+with NLLB (ai/translate.py; convert the weights once with scripts/convert_nllb_ct2.py), re-embedded
+and evaluated again. This mimics a farmer writing in Luganda whose message is translated before it
+reaches the classifier. The report compares it with the original English texts: change in correct
+answers / confident errors / handoffs, and how many predictions changed.
 
 Run from the repo root:  python scripts/evaluate.py [--show] [--threshold 0.4]
 """
 import argparse
 import csv
+import sys
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 
 import joblib
@@ -46,6 +51,8 @@ import numpy as np
 from scipy.special import softmax
 
 from train_classifier import entropy_norm
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root, for ai.translate
 
 OTHER = "other"
 
@@ -65,15 +72,31 @@ def load_split(emb_dir: Path, split: str) -> tuple[np.ndarray, list[str], list[s
     return d["X"], [str(t) for t in d["text"]], [str(l) for l in d["label"]]
 
 
-def load_csv(path: Path, bundle: dict) -> tuple[np.ndarray, list[str], list[str]]:
-    from sentence_transformers import SentenceTransformer  # only needed for csv files
+@lru_cache(maxsize=1)
+def _embedder(name: str):
+    from sentence_transformers import SentenceTransformer  # only needed for csv files / round trip
 
+    return SentenceTransformer(name)
+
+
+def embed(bundle: dict, texts: list[str]) -> np.ndarray:
+    return _embedder(bundle["embedder"]).encode(
+        [bundle["prefix"] + t for t in texts], normalize_embeddings=True, show_progress_bar=False)
+
+
+def load_csv(path: Path, bundle: dict) -> tuple[np.ndarray, list[str], list[str]]:
     with path.open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     texts, labels = [r["text"] for r in rows], [r["label"] for r in rows]
-    X = SentenceTransformer(bundle["embedder"]).encode(
-        [bundle["prefix"] + t for t in texts], normalize_embeddings=True, show_progress_bar=False)
-    return X, texts, labels
+    return embed(bundle, texts), texts, labels
+
+
+def round_trip(texts: list[str]) -> list[str]:
+    """English -> Luganda -> English with NLLB."""
+    from ai import translate
+
+    translate.load()
+    return [translate.lug_to_en(translate.en_to_lug(t)) for t in texts]
 
 
 SWEEP = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0)
@@ -104,7 +127,7 @@ def confusion(labels: list[str], pred: list[str], classes: list[str], reject: st
         print(f"  {r:12s}" + "".join(f"{m[(r, c)]:11d}" for c in cols))
 
 
-def evaluate(name: str, bundle: dict, X, texts, labels, threshold, show: bool) -> None:
+def evaluate(name: str, bundle: dict, X, texts, labels, threshold, show: bool, detail: bool = True) -> dict:
     reject = bundle["reject_label"]
     pred, h, top = predict(bundle, X, threshold)
     saved = bundle["entropy_threshold"] if threshold is None else threshold
@@ -124,6 +147,10 @@ def evaluate(name: str, bundle: dict, X, texts, labels, threshold, show: bool) -
           f"({abs_other} on true '{OTHER}' = harmless, {n_abs - abs_other} on in-scope messages = lost answers)")
     print(f"  accuracy on answered  : {n_ok / n_ans:6.1%}   ({n_ok}/{n_ans} answered)" if n_ans else "  nothing answered")
     print(f"  of the confident errors, in-scope message labelled '{OTHER}' (missed problem): {missed}")
+
+    summary = {"pred": pred, "correct": n_ok, "error": n_err, "handoff": n_abs, "n": n}
+    if not detail:
+        return summary
 
     print()
     sweep_table(h, top, labels, saved)
@@ -147,6 +174,24 @@ def evaluate(name: str, bundle: dict, X, texts, labels, threshold, show: bool) -
         for t, l, a, hh in zip(texts, labels, abstain, h):
             if a and l != OTHER:
                 print(f"    {l} (H={hh:.2f})  {t[:80]}")
+    return summary
+
+
+def compare(name: str, before: dict, after: dict, texts, translated, labels, show: bool) -> None:
+    """Original English vs the same messages after the Luganda round trip."""
+    n = before["n"]
+    changed = [i for i, (a, b) in enumerate(zip(before["pred"], after["pred"])) if a != b]
+    print(f"\n--- {name}: original vs after NLLB round trip (en -> lug -> en), {n} messages ---")
+    print(f"  {'':22s}{'original':>10s}{'translated':>12s}{'change':>9s}")
+    for key, label in (("correct", "correct answers"), ("error", "confident errors"), ("handoff", "handoff (unknown)")):
+        a, b = before[key] / n, after[key] / n
+        print(f"  {label:22s}{a:10.1%}{b:12.1%}{(b - a) * 100:+8.1f}pt")
+    print(f"  predictions that changed: {len(changed)}/{n} ({len(changed) / n:.1%})")
+    if show:
+        for i in changed:
+            print(f"    [{labels[i]}] {before['pred'][i]} -> {after['pred'][i]}")
+            print(f"       en : {texts[i][:90]}")
+            print(f"       rt : {translated[i][:90]}")
 
 
 def main() -> None:
@@ -157,6 +202,10 @@ def main() -> None:
     ap.add_argument("--csv", action="append", type=Path, default=[])
     ap.add_argument("--threshold", type=float, default=None, help="override the saved entropy threshold")
     ap.add_argument("--show", action="store_true", help="list the confident errors and the lost answers")
+    ap.add_argument("--roundtrip", action="store_true",
+                    help="also evaluate after an English -> Luganda -> English NLLB round trip")
+    ap.add_argument("--max-roundtrip", type=int, default=300,
+                    help="translate at most this many texts per dataset (first ones, in order)")
     args = ap.parse_args()
 
     if not args.split and not args.csv:
@@ -165,10 +214,19 @@ def main() -> None:
         args.csv = [default_csv] if default_csv.exists() else []
 
     bundle = joblib.load(args.model)
-    for s in args.split:
-        evaluate(f"split '{s}'", bundle, *load_split(args.emb_dir, s), args.threshold, args.show)
-    for c in args.csv:
-        evaluate(c.name, bundle, *load_csv(c, bundle), args.threshold, args.show)
+    datasets = [(f"split '{s}'", load_split(args.emb_dir, s)) for s in args.split]
+    datasets += [(c.name, load_csv(c, bundle)) for c in args.csv]
+    for name, (X, texts, labels) in datasets:
+        before = evaluate(name, bundle, X, texts, labels, args.threshold, args.show)
+        if args.roundtrip:
+            k = min(args.max_roundtrip, len(texts))
+            print(f"\nTranslating {k} texts of {name} (en -> lug -> en)...")
+            translated = round_trip(texts[:k])
+            sub = evaluate(name + " (round trip)", bundle, embed(bundle, translated), translated, labels[:k],
+                           args.threshold, False, detail=False)
+            ref = evaluate(name + " (same subset, original)", bundle, X[:k], texts[:k], labels[:k],
+                           args.threshold, False, detail=False)
+            compare(name, ref, sub, texts[:k], translated, labels[:k], args.show)
 
 
 if __name__ == "__main__":
