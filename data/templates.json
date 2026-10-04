@@ -2,5 +2,6 @@
     "Healthy":"The leaf looks healthy",
     "Rust":"It looks like the leaf has rust",
     "Phoma":"It looks like the leaf has phoma",
-    "Unknown":"It is unclear what the diagnostic is."
+    "clarify":"Some clarification is needed for the diagnosis",
+    "unsure":"It is unclear what the diagnosis is."
 }
