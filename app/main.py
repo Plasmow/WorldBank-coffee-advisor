@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import pathlib
-import resource
 import sys
 from contextlib import asynccontextmanager
 
@@ -70,18 +69,6 @@ app.include_router(api)
 app.include_router(ussd_api)
 
 
-def _rss_mb():
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # macOS reports bytes, Linux kilobytes.
-    return round(rss / (1024 ** 2 if sys.platform == "darwin" else 1024), 1)
-
-
-@app.get("/health")
-def health():
-    """Liveness, plus the two things that actually go wrong on a small
-    instance: memory, and whether the model is really loaded."""
-    return {"ok": True, "rss_mb": _rss_mb(), "ai": analysis.state()}
-
 
 @app.post("/sms")
 async def sms(request: Request, background: BackgroundTasks):
@@ -129,8 +116,8 @@ def demo_page():
     spare tyre, and P3 owns it."""
     page = pathlib.Path(__file__).resolve().parent.parent / "web" / "index.html"
     if page.exists():
-        return HTMLResponse(page.read_text())
+        return HTMLResponse(page.read_text(encoding="utf-8"))
     return HTMLResponse(
         "<p>Demo page not built yet. The backend is up: "
-        "<a href='/docs'>/docs</a>, <a href='/health'>/health</a>.</p>"
+        "<a href='/docs'>/docs</a></p>"
     )

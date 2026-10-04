@@ -68,7 +68,7 @@ def preload():
     try:
         from ai import translate  # lazy on purpose, see module docstring
 
-        _STATE.update(loaded=True, seconds=round(translate.load(), 1))
+        _STATE.update(loaded=True, seconds=round(translate.preload(), 1))
     except Exception as exc:
         log.exception("the AI chain could not be preloaded")
         _STATE.update(error=f"{type(exc).__name__}: {exc}"[:200])
