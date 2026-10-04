@@ -156,6 +156,7 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
     <span class="badge" id="modeBadge">Connecting to the backend…</span>
     <button class="btn primary" id="playBtn">Play scenario</button>
     <button class="btn" id="resetBtn">Reset</button>
+    <button class="btn" id="soundBtn" aria-pressed="false" title="Ambient sound">🔇 Sound</button>
     <label class="live" id="liveWrap" hidden>
       <input type="checkbox" id="liveToggle" autocomplete="off">
       <span id="liveLabel">Live SMS</span>
@@ -176,55 +177,185 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
         <defs>
           <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
             <stop id="sky1" offset="0" stop-color="#8EC5E8"/>
+            <stop id="skyMid" offset=".55" stop-color="#BFE0F2"/>
             <stop id="sky2" offset="1" stop-color="#DDEFF7"/>
           </linearGradient>
+          <linearGradient id="hillFar" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#9FB8A6"/><stop offset="1" stop-color="#7A988A"/>
+          </linearGradient>
+          <linearGradient id="hillMid" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#A3BC8C"/><stop offset="1" stop-color="#8CA86C"/>
+          </linearGradient>
+          <linearGradient id="hillNear" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7BA056"/><stop offset="1" stop-color="#5E8442"/>
+          </linearGradient>
+          <radialGradient id="sunGlow">
+            <stop offset="0" stop-color="#FFE9A8" stop-opacity=".75"/>
+            <stop offset="1" stop-color="#FFE9A8" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="hazeGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+            <stop offset="1" stop-color="#FFFFFF" stop-opacity=".30"/>
+          </linearGradient>
         </defs>
+
         <rect width="400" height="240" fill="url(#skyGrad)"/>
+
         <g id="stars" fill="#FFFFFF">
-          <circle cx="40" cy="30" r="1.2"/><circle cx="90" cy="18" r="1"/><circle cx="140" cy="42" r="1.3"/><circle cx="210" cy="22" r="1"/>
-          <circle cx="250" cy="55" r="1.2"/><circle cx="370" cy="24" r="1.1"/><circle cx="175" cy="70" r=".9"/><circle cx="60" cy="68" r="1"/>
+          <circle cx="40" cy="30" r="1.2"><animate class="motion" attributeName="opacity" values=".4;1;.4" dur="3.1s" repeatCount="indefinite"/></circle>
+          <circle cx="90" cy="18" r="1"><animate class="motion" attributeName="opacity" values="1;.35;1" dur="4.3s" repeatCount="indefinite"/></circle>
+          <circle cx="140" cy="42" r="1.3"><animate class="motion" attributeName="opacity" values=".6;1;.6" dur="2.7s" repeatCount="indefinite"/></circle>
+          <circle cx="210" cy="22" r="1"/><circle cx="250" cy="55" r="1.2"/>
+          <circle cx="370" cy="24" r="1.1"><animate class="motion" attributeName="opacity" values=".5;1;.5" dur="3.8s" repeatCount="indefinite"/></circle>
+          <circle cx="175" cy="70" r=".9"/><circle cx="60" cy="68" r="1"/>
+          <circle cx="300" cy="18" r=".9"/><circle cx="118" cy="26" r="1"/>
         </g>
-        <circle id="sun" cx="200" cy="38" r="16" fill="#FFD25E"/>
+
+        <g id="sunWrap">
+          <circle id="sunHalo" cx="200" cy="38" r="46" fill="url(#sunGlow)"/>
+          <circle id="sun" cx="200" cy="38" r="16" fill="#FFD25E"/>
+        </g>
         <g id="moon"><circle cx="322" cy="44" r="13" fill="#F2EED8"/><circle id="moonCut" cx="328" cy="39" r="11" fill="#0E1A33"/></g>
-        <path d="M6 168 L96 76 L118 90 L150 62 L222 132 L270 156 Z" fill="#7A988A"/>
-        <path d="M150 62 L163 75 L156 78 L146 70 Z" fill="#E9EEF0" opacity=".8"/>
-        <path d="M0 172 Q100 140 210 160 T400 150 V240 H0 Z" fill="#94AF81"/>
-        <path d="M0 120 C70 128 160 160 250 205 L250 240 L0 240 Z" fill="#6F914F"/>
-        <g id="bushes"></g>
+
+        <g id="clouds" opacity=".9">
+          <g id="cloudA" fill="#FFFFFF" opacity=".85">
+            <ellipse cx="0" cy="0" rx="22" ry="9"/><ellipse cx="16" cy="3" rx="16" ry="7"/><ellipse cx="-15" cy="4" rx="14" ry="6"/>
+            <animateTransform class="motion" attributeName="transform" type="translate"
+              values="-60 46; 460 46" dur="78s" repeatCount="indefinite"/>
+          </g>
+          <g id="cloudB" fill="#FFFFFF" opacity=".6">
+            <ellipse cx="0" cy="0" rx="16" ry="6"/><ellipse cx="12" cy="2" rx="11" ry="5"/>
+            <animateTransform class="motion" attributeName="transform" type="translate"
+              values="-40 78; 450 78" dur="116s" repeatCount="indefinite"/>
+          </g>
+          <g id="cloudC" fill="#FFFFFF" opacity=".45">
+            <ellipse cx="0" cy="0" rx="26" ry="8"/><ellipse cx="-18" cy="3" rx="15" ry="6"/>
+            <animateTransform class="motion" attributeName="transform" type="translate"
+              values="-80 28; 470 28" dur="152s" repeatCount="indefinite"/>
+          </g>
+        </g>
+
+        <g id="birds" fill="none" stroke="#3C4A42" stroke-width="1.4" stroke-linecap="round" opacity=".75">
+          <g>
+            <path d="M0 0 q3 -3 6 0 q3 -3 6 0"><animate class="motion" attributeName="d"
+              values="M0 0 q3 -3 6 0 q3 -3 6 0; M0 0 q3 2 6 0 q3 2 6 0; M0 0 q3 -3 6 0 q3 -3 6 0"
+              dur="0.5s" repeatCount="indefinite"/></path>
+            <path d="M14 6 q2.4 -2.4 4.8 0 q2.4 -2.4 4.8 0"><animate class="motion" attributeName="d"
+              values="M14 6 q2.4 -2.4 4.8 0 q2.4 -2.4 4.8 0; M14 6 q2.4 1.6 4.8 0 q2.4 1.6 4.8 0; M14 6 q2.4 -2.4 4.8 0 q2.4 -2.4 4.8 0"
+              dur="0.62s" repeatCount="indefinite"/></path>
+            <animateTransform class="motion" attributeName="transform" type="translate"
+              values="-40 70; 120 54; 280 62; 450 44" dur="34s" repeatCount="indefinite"/>
+          </g>
+        </g>
+
+        <path d="M6 168 L96 76 L118 90 L150 62 L222 132 L270 156 Z" fill="url(#hillFar)"/>
+        <path d="M150 62 L163 75 L156 78 L146 70 Z" fill="#F3F7F8" opacity=".9"/>
+        <rect id="haze" x="0" y="120" width="400" height="56" fill="url(#hazeGrad)" opacity=".5"/>
+        <path d="M0 172 Q100 140 210 160 T400 150 V240 H0 Z" fill="url(#hillMid)"/>
+        <path d="M0 120 C70 128 160 160 250 205 L250 240 L0 240 Z" fill="url(#hillNear)"/>
+
+        <g id="bushWrap">
+          <g id="bushes"></g>
+          <animateTransform class="motion" attributeName="transform" type="rotate"
+            values="-0.5 200 240; 0.6 200 240; -0.5 200 240" dur="7.5s" repeatCount="indefinite"/>
+        </g>
+
         <path d="M150 240 C200 214 250 202 300 198 S380 190 400 190 V240 Z" fill="#8CA866"/>
+        <g id="grass" stroke="#6E9150" stroke-width="1.3" stroke-linecap="round" opacity=".8">
+          <path d="M40 238 q-2 -8 1 -12"/><path d="M78 240 q2 -9 -1 -13"/><path d="M330 236 q-2 -8 2 -11"/>
+          <path d="M366 239 q3 -9 0 -12"/>
+          <animateTransform class="motion" attributeName="transform" type="skewX"
+            values="0;3.5;0;-3.5;0" dur="5.2s" repeatCount="indefinite"/>
+        </g>
+
         <g transform="translate(300 150)">
+          <ellipse cx="35" cy="59" rx="42" ry="4" fill="#000" opacity=".12"/>
           <rect x="0" y="18" width="70" height="40" fill="#C69E73"/>
+          <rect x="0" y="18" width="70" height="40" fill="#8B6B49" opacity=".18"/>
           <polygon points="-8,21 35,-4 78,21" fill="#8B9298"/>
-          <rect x="10" y="32" width="14" height="26" fill="#5A3B25"/>
-          <rect x="40" y="30" width="18" height="14" fill="#2D3337"/>
+          <polygon points="-8,21 35,-4 35,21" fill="#FFFFFF" opacity=".10"/>
+          <rect x="10" y="32" width="14" height="26" rx="1" fill="#5A3B25"/>
+          <rect x="40" y="30" width="18" height="14" rx="1" fill="#2D3337"/>
           <rect x="46" y="34" width="6" height="9" rx="1" fill="#121517"/>
           <rect id="phoneGlowDay" x="47" y="35" width="4" height="4" fill="#7FE0A7" opacity="0"/>
         </g>
+
         <g id="noor" transform="translate(285 207)">
-          <path d="M-4 0 L-3 -14 M4 0 L3 -14" stroke="#4A2E1C" stroke-width="2.6" stroke-linecap="round"/>
-          <path d="M-10 -12 L-6 -32 L6 -32 L10 -12 Z" fill="#B0362A"/>
-          <path d="M-9 -18 H9" stroke="#E2A72A" stroke-width="2"/>
-          <circle cx="0" cy="-38" r="6.2" fill="#6A3E25"/>
-          <path d="M-7 -37 Q0 -51 7 -37 Q0 -42 -7 -37 Z" fill="#E2A72A"/>
-          <g id="armsHome"><path d="M-6 -30 L-10 -18 M6 -30 L10 -18" stroke="#6A3E25" stroke-width="2.4" stroke-linecap="round"/></g>
-          <g id="armsField">
-            <path d="M-6 -30 L-9 -19" stroke="#6A3E25" stroke-width="2.4" stroke-linecap="round"/>
-            <g id="hoe">
-              <path d="M6 -30 L15 -23" stroke="#6A3E25" stroke-width="2.4" stroke-linecap="round"/>
-              <line x1="13" y1="-38" x2="19" y2="2" stroke="#7A5230" stroke-width="2"/>
-              <path d="M19 2 L28 0 L27 4 Z" fill="#8B9298"/>
-              <animateTransform id="hoeAnim" attributeName="transform" type="rotate" values="0 6 -30; -22 6 -30; 0 6 -30" dur="1.3s" repeatCount="indefinite"/>
+          <ellipse cx="0" cy="1.5" rx="12" ry="3" fill="#000" opacity=".16"/>
+          <g id="noorBody">
+            <path d="M-4.6 0 L-3.2 -14 M4.6 0 L3.2 -14" stroke="#4A2E1C" stroke-width="2.9" stroke-linecap="round"/>
+            <path d="M-11 -12 Q-10 -26 -6.5 -33 L6.5 -33 Q10 -26 11 -12 Z" fill="#B0362A"/>
+            <path d="M-11 -12 Q-10 -26 -6.5 -33 L-1.5 -33 Q-4.5 -22 -4.5 -12 Z" fill="#8E2B22" opacity=".5"/>
+            <path d="M-9.4 -19 H9.4" stroke="#E2A72A" stroke-width="2.2"/>
+            <path d="M-9.8 -15.5 H9.8" stroke="#8E2B22" stroke-width="1" opacity=".6"/>
+
+            <g id="noorHead">
+              <circle cx="0" cy="-39" r="6.4" fill="#6A3E25"/>
+              <circle cx="2.3" cy="-38.6" r=".75" fill="#241309"/>
+              <circle cx="-2.3" cy="-38.6" r=".75" fill="#241309"/>
+              <path d="M-2 -35.6 q2 1.3 4 0" stroke="#3B2112" stroke-width=".7" fill="none" stroke-linecap="round"/>
+              <path d="M-6.7 -39.4 Q-5.4 -48.8 0 -49.1 Q5.4 -48.8 6.7 -39.4 Q3.4 -43.8 0 -43.6 Q-3.4 -43.8 -6.7 -39.4 Z" fill="#E2A72A"/>
+              <path d="M-6.7 -39.4 Q-5.4 -48.8 0 -49.1 Q-1 -45 -2.6 -40.4 Z" fill="#F2BC45" opacity=".75"/>
+              <circle cx="6.1" cy="-42.4" r="2.2" fill="#D2991F"/>
+              <circle cx="7.6" cy="-40.6" r="1.3" fill="#C78E18"/>
             </g>
+
+            <g id="armsHome">
+              <path d="M-6.2 -31 Q-11 -24 -8 -18" stroke="#6A3E25" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+              <path d="M6.2 -31 Q11 -24 8 -18" stroke="#6A3E25" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+            </g>
+
+            <g id="armsPhone">
+              <ellipse id="noorPhoneHalo" cx="0" cy="-27.5" rx="8" ry="8.5" fill="#9BE8BF" opacity=".2">
+                <animate class="motion" attributeName="opacity" values=".1;.28;.1" dur="3.2s" repeatCount="indefinite"/>
+              </ellipse>
+              <!-- upper arms down from the shoulders, forearms folded up to the phone -->
+              <path d="M-6.2 -31 Q-9.4 -27.5 -7.4 -24.4" stroke="#6A3E25" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+              <path d="M6.2 -31 Q9.4 -27.5 7.4 -24.4" stroke="#6A3E25" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+              <path d="M-7.6 -24.2 Q-6 -28.2 -3 -28.6" stroke="#73472B" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <path d="M7.6 -24.2 Q6 -28.2 3 -28.6" stroke="#73472B" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g id="noorPhone">
+                <rect x="-2.6" y="-31.4" width="5.2" height="7.6" rx="1" fill="#23282B"/>
+                <rect id="noorPhoneScreen" x="-1.9" y="-30.7" width="3.8" height="5.4" rx=".5" fill="#9BE8BF"/>
+              </g>
+              <!-- hands last, so they read as gripping the edges -->
+              <circle cx="-3" cy="-28" r="1.5" fill="#5E3620"/>
+              <circle cx="3" cy="-28" r="1.5" fill="#5E3620"/>
+            </g>
+
+            <g id="armsField">
+              <path d="M-6.2 -31 Q-9.4 -24 -10 -19" stroke="#6A3E25" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+              <g id="hoe">
+                <path d="M6.2 -31 L15 -23" stroke="#6A3E25" stroke-width="2.6" stroke-linecap="round"/>
+                <line x1="13" y1="-38" x2="19" y2="2" stroke="#7A5230" stroke-width="2"/>
+                <path d="M19 2 L28 0 L27 4 Z" fill="#8B9298"/>
+                <animateTransform id="hoeAnim" class="motion" attributeName="transform" type="rotate"
+                  values="0 6 -31; -22 6 -31; 0 6 -31" dur="1.3s" repeatCount="indefinite"/>
+              </g>
+            </g>
+            <animateTransform id="breathe" class="motion" attributeName="transform" type="translate"
+              values="0 0; 0 -0.7; 0 0" dur="4.1s" repeatCount="indefinite"/>
           </g>
         </g>
+
         <rect id="tint" width="400" height="240" fill="#0B1530" opacity="0"/>
         <rect id="winGlow" x="340" y="180" width="18" height="14" fill="#FFD27A" opacity="0"/>
         <rect id="phoneGlow" x="347" y="185" width="4" height="4" fill="#7FE0A7" opacity="0"/>
+        <g id="fireflies" fill="#FFE98A" opacity="0">
+          <circle cx="120" cy="200" r="1.5"><animate class="motion" attributeName="opacity" values="0;1;0" dur="3.4s" repeatCount="indefinite"/>
+            <animateTransform class="motion" attributeName="transform" type="translate" values="0 0; 14 -10; 0 0" dur="9s" repeatCount="indefinite"/></circle>
+          <circle cx="210" cy="214" r="1.3"><animate class="motion" attributeName="opacity" values="0;.9;0" dur="4.6s" repeatCount="indefinite"/>
+            <animateTransform class="motion" attributeName="transform" type="translate" values="0 0; -12 -14; 0 0" dur="11s" repeatCount="indefinite"/></circle>
+          <circle cx="70" cy="222" r="1.4"><animate class="motion" attributeName="opacity" values="0;1;0" dur="5.2s" repeatCount="indefinite"/>
+            <animateTransform class="motion" attributeName="transform" type="translate" values="0 0; 10 -16; 0 0" dur="13s" repeatCount="indefinite"/></circle>
+        </g>
         <g id="zzz" fill="#FFFFFF" font-family="Bricolage Grotesque, sans-serif" font-weight="800">
-          <text x="318" y="146" font-size="11">z</text><text x="328" y="134" font-size="14">z</text><text x="340" y="119" font-size="18">Z</text>
+          <text x="318" y="146" font-size="11">z<animate class="motion" attributeName="opacity" values="0;1;0" dur="3.6s" repeatCount="indefinite"/></text>
+          <text x="328" y="134" font-size="14">z<animate class="motion" attributeName="opacity" values="0;1;0" dur="3.6s" begin="0.5s" repeatCount="indefinite"/></text>
+          <text x="340" y="119" font-size="18">Z<animate class="motion" attributeName="opacity" values="0;1;0" dur="3.6s" begin="1s" repeatCount="indefinite"/></text>
         </g>
         <g id="notif" transform="translate(378 162)">
-          <circle r="10" fill="#B0362A"/>
+          <circle r="10" fill="#B0362A"><animate class="motion" attributeName="r" values="10;11.4;10" dur="1.6s" repeatCount="indefinite"/></circle>
           <text id="notifCount" y="4" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Sans, sans-serif">1</text>
         </g>
       </svg>
@@ -342,15 +473,19 @@ const TIMES = {
   night:   {label:'Night', clock:'23:00', away:true, where:'Asleep', text:'Noor is asleep. Messages wait until the morning.'},
 };
 const SKY = {
-  morning: {s1:'#F4C59C', s2:'#FCE8D1', sun:[62,108,'#F6AE5E'], tint:.06, glow:0},
-  day:     {s1:'#8EC5E8', s2:'#DDEFF7', sun:[200,38,'#FFD25E'], tint:0, glow:0},
-  evening: {s1:'#5A4A88', s2:'#F1A45A', sun:[346,122,'#EE8749'], tint:.24, glow:.95},
-  night:   {s1:'#0E1A33', s2:'#27365C', sun:null, tint:.52, glow:0},
+  morning: {s1:'#F2B98C', mid:'#F8D7B4', s2:'#FDEEDC', sun:[62,108,'#F6AE5E'], halo:'#FFD9A0', tint:.06, glow:0, haze:.55, clouds:.95},
+  day:     {s1:'#7FBEE6', mid:'#B8DCF0', s2:'#E2F1F8', sun:[200,38,'#FFD25E'], halo:'#FFE9A8', tint:0,   glow:0,   haze:.40, clouds:1},
+  evening: {s1:'#4B3F7E', mid:'#9B6C8C', s2:'#F0A05A', sun:[346,122,'#EE8749'], halo:'#FF9E5C', tint:.24, glow:.95, haze:.30, clouds:.55},
+  night:   {s1:'#0C1730', mid:'#19264A', s2:'#2A3A61', sun:null, halo:null, tint:.52, glow:0, haze:.12, clouds:.12},
 };
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
 /* ---------- state ---------- */
-const S = {time:'evening', day:0, now:null, messages:[], seen:new Set(), seenEv:new Set(), unread:new Set(),
+// ?t=morning|day|evening|night and ?day=0-6 open straight on a scene, which
+// is what you want when recording a demo or checking one state.
+const QS_TIME = ['morning','day','evening','night'].includes(QS.get('t')) ? QS.get('t') : 'evening';
+const QS_DAY = Math.max(0, Math.min(6, parseInt(QS.get('day'), 10) || 0));
+const S = {time:QS_TIME, day:QS_DAY, now:null, messages:[], seen:new Set(), seenEv:new Set(), unread:new Set(),
   firstPoll:true, connected:false, everConnected:false, playing:false, stop:false};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -370,7 +505,8 @@ function slopeY(x){let best=PTS[0];for(const p of PTS) if(Math.abs(p[0]-x)<Math.
     if((i+r)%3===0) h+=`<circle cx="${x+3}" cy="${(y+1.5).toFixed(1)}" r="1.6" fill="#B0362A"/>`;
   }
   $('bushes').innerHTML=h;})();
-if(reduced){const a=$('hoeAnim'); a && a.remove();}
+// One switch for every bit of motion in the scene.
+if(reduced){ document.querySelectorAll('#scene .motion').forEach(a=>a.remove()); }
 
 const TZ='Africa/Kampala';
 function clockStr(){ if(S.now){ return new Date(S.now).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:TZ}); }
@@ -382,9 +518,18 @@ function unreadCount(){return S.messages.filter(m=>m.from==='service'&&S.unread.
 function renderScene(){
   const T=TIMES[S.time], K=SKY[S.time];
   $('sky1').setAttribute('stop-color',K.s1); $('sky2').setAttribute('stop-color',K.s2);
+  $('skyMid').setAttribute('stop-color',K.mid);
   $('moonCut').setAttribute('fill',K.s1);
-  const sun=$('sun');
-  if(K.sun){sun.style.display='';sun.setAttribute('cx',K.sun[0]);sun.setAttribute('cy',K.sun[1]);sun.setAttribute('fill',K.sun[2]);} else sun.style.display='none';
+  $('haze').setAttribute('opacity',K.haze);
+  $('clouds').setAttribute('opacity',K.clouds);
+  $('birds').style.display=(S.time==='morning'||S.time==='day')?'':'none';
+  $('fireflies').setAttribute('opacity',S.time==='night'?1:0);
+  const sun=$('sun'), halo=$('sunHalo');
+  if(K.sun){
+    sun.style.display='';halo.style.display='';
+    sun.setAttribute('cx',K.sun[0]);sun.setAttribute('cy',K.sun[1]);sun.setAttribute('fill',K.sun[2]);
+    halo.setAttribute('cx',K.sun[0]);halo.setAttribute('cy',K.sun[1]);
+  } else { sun.style.display='none'; halo.style.display='none'; }
   $('moon').style.display=S.time==='night'?'':'none';
   $('stars').style.display=S.time==='night'?'':'none';
   $('tint').setAttribute('opacity',K.tint);
@@ -392,11 +537,18 @@ function renderScene(){
   const field=S.time==='day', asleep=S.time==='night';
   const noor=$('noor');
   noor.style.display=asleep?'none':'';
-  noor.setAttribute('transform',field?'translate(118 152)':'translate(285 207)');
-  $('armsHome').style.display=field?'none':'';
+  noor.setAttribute('transform',field?'translate(112 158) scale(1.25)':'translate(258 226) scale(1.75)');
+  // At home she can read, so the phone is in her hands; in the field it is
+  // back at the house and she is holding a hoe.
+  const unread=unreadCount();
   $('armsField').style.display=field?'':'none';
+  $('armsPhone').style.display=field?'none':'';
+  $('armsHome').style.display='none';
+  $('noorPhoneScreen').setAttribute('fill',unread>0?'#8FF0BC':'#4E7E66');
+  // Head tips toward the screen while she reads, straightens in the field.
+  $('noorHead').setAttribute('transform',field?'':'rotate(9 0 -33)');
   $('zzz').style.display=asleep?'':'none';
-  const n=unreadCount();
+  const n=unread;
   $('notif').style.display=n>0?'':'none';
   $('notifCount').textContent=n;
   $('phoneGlow').setAttribute('opacity',n>0?1:0);
@@ -565,6 +717,7 @@ async function sendFromNoor(text){
   await poll();
 }
 async function setTime(t, day){
+  Ambience.setTime(t);   // the soundscape follows the hour, not every repaint
   if(day!=null) S.day=Math.max(0,Math.min(6,day));
   S.time=t;
   if(!TIMES[t].away){ S.messages.forEach(m=>{ if(S.unread.has(m.id)) m.fresh=true; }); S.unread.clear(); }
@@ -639,6 +792,109 @@ async function setLive(on){
   await poll();
 }
 
+/* ---------- ambience ----------
+   Synthesised, not sampled: a few hundred bytes of code instead of megabytes
+   of audio, and it works offline. Nothing starts before a click -- browsers
+   block audio until a gesture, and a page that makes noise unasked is rude. */
+const Ambience = (() => {
+  let ctx = null, master = null, wind = null, timer = null, on = false, mode = 'day';
+
+  function brownNoise(seconds){
+    const buf = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for(let i = 0; i < d.length; i++){
+      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+      d[i] = last * 3.2;
+    }
+    return buf;
+  }
+
+  function startWind(){
+    const src = ctx.createBufferSource();
+    src.buffer = brownNoise(4); src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 620; filter.Q.value = 0.6;
+    // Leaves: the gust is the filter opening and closing, not the noise itself.
+    const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
+    lfo.frequency.value = 0.08; lfoGain.gain.value = 380;
+    lfo.connect(lfoGain).connect(filter.frequency);
+    wind = ctx.createGain(); wind.gain.value = 0.0;
+    src.connect(filter).connect(wind).connect(master);
+    src.start(); lfo.start();
+    wind.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 2.5);
+  }
+
+  function chirp(t0, base){
+    // Two or three quick upward sweeps: that shape is most of what makes a
+    // sound read as "small bird" rather than "beep".
+    const notes = 2 + (Math.random() < 0.5 ? 0 : 1);
+    for(let i = 0; i < notes; i++){
+      const t = t0 + i * (0.07 + Math.random() * 0.05);
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle';
+      const f = base * (0.92 + Math.random() * 0.22);
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * 1.55, t + 0.045);
+      o.frequency.exponentialRampToValueAtTime(f * 1.1, t + 0.085);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      o.connect(g).connect(master); o.start(t); o.stop(t + 0.14);
+    }
+  }
+
+  function cricket(t0){
+    for(let i = 0; i < 5; i++){
+      const t = t0 + i * 0.035;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'square'; o.frequency.value = 4300 + Math.random() * 500;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.035, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+      o.connect(g).connect(master); o.start(t); o.stop(t + 0.03);
+    }
+  }
+
+  function tick(){
+    if(!on) return;
+    const t = ctx.currentTime + 0.05;
+    if(mode === 'morning'){ chirp(t, 2300); if(Math.random() < 0.6) chirp(t + 0.6 + Math.random(), 2900); }
+    else if(mode === 'day'){ if(Math.random() < 0.55) chirp(t, 2600); }
+    else if(mode === 'evening'){ if(Math.random() < 0.35) chirp(t, 1900); cricket(t + 0.8); }
+    else { cricket(t); if(Math.random() < 0.5) cricket(t + 1.1 + Math.random()); }
+    const gap = mode === 'night' ? 1800 : (mode === 'morning' ? 1700 : 3200);
+    timer = setTimeout(tick, gap + Math.random() * gap);
+  }
+
+  function setTime(t){
+    mode = t;
+    if(!on || !wind) return;
+    // Still at night, breezier in the afternoon.
+    const level = t === 'night' ? 0.22 : t === 'day' ? 0.62 : 0.42;
+    wind.gain.linearRampToValueAtTime(level, ctx.currentTime + 1.5);
+  }
+
+  async function toggle(){
+    if(on){
+      on = false; clearTimeout(timer);
+      if(master) master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      return false;
+    }
+    if(!ctx){
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = 0.0001; master.connect(ctx.destination);
+      startWind();
+    }
+    await ctx.resume();
+    on = true;
+    master.gain.linearRampToValueAtTime(0.09, ctx.currentTime + 0.8);
+    setTime(mode); tick();
+    return true;
+  }
+  return { toggle, setTime };
+})();
+
 /* ---------- wiring ---------- */
 $('projectName').textContent=CONFIG.projectName;
 $('shortcode').textContent=CONFIG.shortcode;
@@ -654,6 +910,11 @@ $('dayNext').addEventListener('click',()=>setTime(S.time,S.day+1));
 $('playBtn').addEventListener('click',play);
 $('liveToggle').addEventListener('change',e=>setLive(e.target.checked));
 $('trCompose').addEventListener('submit',e=>{e.preventDefault();composeAndSend($('trInput').value);});
+$('soundBtn').addEventListener('click',async e=>{
+  const playing = await Ambience.toggle();
+  e.currentTarget.textContent = playing ? '🔊 Sound' : '🔇 Sound';
+  e.currentTarget.setAttribute('aria-pressed', String(playing));
+});
 $('resetBtn').addEventListener('click',()=>{ if(!S.playing) reset(); });
 renderAll();
 renderEnglish();
