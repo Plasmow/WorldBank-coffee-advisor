@@ -1,6 +1,8 @@
 """Demo surface for the Lovable page. Each visitor gets a +256799... number
 and their own simulated clock; nothing here ever reaches Africa's Talking."""
 
+import os
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -9,17 +11,39 @@ from app import clock, db, router, scheduler
 api = APIRouter(prefix="/api/demo")
 
 
+def live_phone():
+    """The one real number the page may drive, named by the operator.
+
+    Set DEMO_LIVE_PHONE and the page can push a message all the way through
+    Africa's Talking -- the last hop a demo number never takes. The number
+    comes from the environment and never from the request, so this opens one
+    line, not a relay to any number on earth.
+    """
+    raw = os.environ.get("DEMO_LIVE_PHONE", "").strip()
+    return db.norm_phone(raw) if raw else None
+
+
 def demo_phone(raw):
-    """Normalise, and refuse anything that is not a demo number.
+    """Normalise, and refuse anything the operator has not opened.
 
     These routes are public on Replit. Without this, anyone could read a real
     farmer's whole conversation by guessing her number, or make the server
     send SMS on our Africa's Talking credit.
     """
     phone = db.norm_phone(raw)
-    if not clock.is_demo(phone):
-        raise HTTPException(400, f"demo numbers only (must start with {clock.DEMO_PREFIX})")
-    return phone
+    if clock.is_demo(phone) or (phone and phone == live_phone()):
+        return phone
+    raise HTTPException(400, f"demo numbers only (must start with {clock.DEMO_PREFIX})")
+
+
+@api.get("/config")
+def config():
+    """What the page is allowed to do here, so it can show the right controls."""
+    return {
+        "live_phone": live_phone(),
+        "demo_mode": os.environ.get("DEMO_MODE") == "1",
+        "demo_prefix": clock.DEMO_PREFIX,
+    }
 
 
 class Send(BaseModel):

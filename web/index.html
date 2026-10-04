@@ -80,6 +80,10 @@ main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content
 .bubble.noor{background:var(--leaf);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
 .bubble .meta{display:block;font-size:9.5px;opacity:.7;margin-top:3px;font-family:var(--f-mono)}
 .bubble.fresh{animation:fresh 2s ease}
+.live{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);
+  border-radius:999px;font-size:12px;cursor:pointer;white-space:nowrap}
+.live.on{background:var(--cherry-soft);border-color:var(--cherry);color:var(--cherry);font-weight:600}
+.live.blocked{opacity:.55;cursor:not-allowed}
 .verdict{align-self:flex-end;max-width:86%;margin-top:-2px;padding:2px 7px;border-radius:999px;
   font-family:var(--f-mono);font-size:9px;letter-spacing:.02em;white-space:nowrap}
 .verdict.answer{background:var(--leaf-soft);color:var(--leaf)}
@@ -135,6 +139,10 @@ main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content
     <span class="badge" id="modeBadge">Connecting to the backend…</span>
     <button class="btn primary" id="playBtn">Play scenario</button>
     <button class="btn" id="resetBtn">Reset</button>
+    <label class="live" id="liveWrap" hidden>
+      <input type="checkbox" id="liveToggle">
+      <span id="liveLabel">Live SMS</span>
+    </label>
   </div>
 </header>
 
@@ -279,11 +287,12 @@ const QS = new URLSearchParams(location.search);
 if (window.API_BASE) CONFIG.apiBase = window.API_BASE;
 if (QS.get('api')) CONFIG.apiBase = QS.get('api');
 /* Each visitor gets their own demo number (and so their own conversation and simulated clock). */
-CONFIG.phone = (() => {
+CONFIG.demoPhone = (() => {
   try { const k='demoPhone'; let p=sessionStorage.getItem(k);
         if(!p){ p='+256799'+String(Math.floor(Math.random()*1e6)).padStart(6,'0'); sessionStorage.setItem(k,p); } return p; }
   catch(e){ return '+256799'+String(Math.floor(Math.random()*1e6)).padStart(6,'0'); }
 })();
+CONFIG.phone = CONFIG.demoPhone;
 /* Backend API (FastAPI, app/demo_routes.py):
    GET  /api/demo/state?phone=...
         -> {now, messages:[{id, direction:'in'|'out', text, ts, text_en, label, proba, decision}],
@@ -498,6 +507,37 @@ async function play(){
   S.playing=false; S.stop=false; $('playBtn').textContent='Play scenario'; renderThread();
 }
 
+/* ---------- live mode ----------
+   The one real number the operator opened, through the real gateway. The
+   number comes from the server, never from this page: the demo endpoints
+   refuse anything else, so a visitor cannot aim it somewhere. */
+let LIVE = null;
+async function loadConfig(){
+  try{ LIVE = await api('/api/demo/config'); }catch(e){ return; }
+  if(!LIVE || !LIVE.live_phone) return;
+  const wrap = $('liveWrap');
+  wrap.hidden = false;
+  if(LIVE.demo_mode){
+    // DEMO_MODE=1 short-circuits every send, so nothing would actually leave.
+    wrap.classList.add('blocked');
+    $('liveToggle').disabled = true;
+    $('liveLabel').textContent = 'Live SMS (DEMO_MODE is on)';
+  } else {
+    $('liveLabel').textContent = 'Live SMS \u2192 ' + LIVE.live_phone;
+  }
+}
+async function setLive(on){
+  if(S.playing) return;
+  CONFIG.phone = on ? LIVE.live_phone : CONFIG.demoPhone;
+  $('liveWrap').classList.toggle('on', on);
+  $('liveToggle').checked = on;
+  showEvent(on
+    ? 'Live: messages now go through Africa\u2019s Talking to ' + LIVE.live_phone + '. Each reply costs credit.'
+    : 'Back to the simulated number. Nothing leaves the server.', !on);
+  S.messages=[]; S.seen=new Set(); S.seenEv=new Set(); S.unread=new Set(); S.firstPoll=true;
+  await poll();
+}
+
 /* ---------- wiring ---------- */
 $('projectName').textContent=CONFIG.projectName;
 $('shortcode').textContent=CONFIG.shortcode;
@@ -511,8 +551,10 @@ document.querySelectorAll('.timebtn').forEach(b=>b.addEventListener('click',()=>
 $('dayPrev').addEventListener('click',()=>setTime(S.time,S.day-1));
 $('dayNext').addEventListener('click',()=>setTime(S.time,S.day+1));
 $('playBtn').addEventListener('click',play);
+$('liveToggle').addEventListener('change',e=>setLive(e.target.checked));
 $('resetBtn').addEventListener('click',()=>{ if(!S.playing) reset(); });
 renderAll();
+loadConfig();
 /* Announce the slot the page is showing before anything else. The server's own
    default is day 0 morning, so without this a diagnosis is stamped 08:00 while
    the screen reads 19:00, and the day+3 follow-up lands a slot early. */

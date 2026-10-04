@@ -70,9 +70,20 @@ of failing silently. A degraded demo beats a dead one.
 | `NLLB_CT2_DIR` | converted model folder, default `model/nllb-ct2-int8` |
 | `NLLB_CT2_REPO` | Hugging Face repo to pull the converted model from on first boot |
 | `NLLB_COMPUTE_TYPE` | `int8` by default; `float32` to compare quality |
+| `DEMO_LIVE_PHONE` | one real number the demo page may drive through the gateway |
 
 Numbers starting `+256799` are demo numbers: their clock is simulated and
-nothing addressed to them ever reaches Africa's Talking.
+nothing addressed to them ever reaches Africa's Talking. The `/api/demo/*`
+endpoints refuse every other number, because they are public once deployed:
+otherwise anyone could read a farmer's conversation by guessing her number,
+or spend our SMS credit.
+
+`DEMO_LIVE_PHONE` opens exactly one exception. Set it and the demo page shows
+a **Live SMS** switch that routes the conversation to that number through the
+real gateway -- the last hop a demo number never takes. The number comes from
+the environment, never from the request, so this opens one line rather than a
+relay. Leave it unset in the public deployment, and remember `DEMO_MODE=1`
+short-circuits every send (the page says so on the switch).
 
 ## Try the whole journey
 
