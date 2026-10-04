@@ -1,0 +1,20 @@
+{
+  "source": "UCDA indicative farm-gate prices",
+  "note": "PLACEHOLDER figures - P3 to replace with real UCDA numbers before the demo",
+  "date": "2026-09-29",
+  "currency": "UGX",
+  "prices": [
+    {
+      "grade": "Kiboko",
+      "ugx_per_kg": 3200
+    },
+    {
+      "grade": "Robusta FAQ",
+      "ugx_per_kg": 6400
+    },
+    {
+      "grade": "Arabica parchment",
+      "ugx_per_kg": 9500
+    }
+  ]
+}
