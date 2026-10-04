@@ -1,0 +1,15 @@
+[project]
+name = "worldbankagriculture"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dotenv>=0.9.9",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "ollama>=0.6.3",
+    "resource>=0.2.1",
+    "torch>=2.14.1",
+    "uvicorn>=0.54.0",
+]

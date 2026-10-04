@@ -226,3 +226,7 @@ ai/nllb-600m-ct2/
 # Coffee Advisor
 data/app.db*
 model/nllb-ct2-int8/
+
+.python-version
+uv.lock
+.hf_cache/

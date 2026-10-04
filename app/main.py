@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import pathlib
-import resource
 import sys
 from contextlib import asynccontextmanager
 
@@ -50,13 +49,16 @@ async def _background():
 
 @asynccontextmanager
 async def lifespan(app):
+    logging.basicConfig(level=logging.INFO)
     db.init()
     # Load the models here, not on Noor's first message: she would wait the
-    # whole cold start, and Africa's Talking would have given up long before.
-    analysis.preload()
+    # whole cold start. In a thread, so the port opens at once and the host's
+    # health check does not kill a server that is still warming up.
+    preload = asyncio.create_task(asyncio.to_thread(analysis.preload))
     task = asyncio.create_task(_background())
     yield
     task.cancel()
+    preload.cancel()
 
 
 app = FastAPI(title="Coffee Advisor", lifespan=lifespan)
@@ -71,16 +73,40 @@ app.include_router(ussd_api)
 
 
 def _rss_mb():
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # macOS reports bytes, Linux kilobytes.
-    return round(rss / (1024 ** 2 if sys.platform == "darwin" else 1024), 1)
+    """Peak resident memory. `resource` is Unix-only; Windows asks the kernel."""
+    try:
+        import resource
+
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # macOS reports bytes, Linux kilobytes.
+        return round(rss / (1024 ** 2 if sys.platform == "darwin" else 1024), 1)
+    except ImportError:
+        import ctypes
+        from ctypes import wintypes
+
+        class Counters(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + [
+                (n, ctypes.c_size_t) for n in (
+                    "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                    "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                    "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")
+            ]
+
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        k32.K32GetProcessMemoryInfo.argtypes = [
+            wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+        c = Counters(cb=ctypes.sizeof(Counters))
+        k32.K32GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(c), c.cb)
+        return round(c.PeakWorkingSetSize / 1024 ** 2, 1)
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     """Liveness, plus the two things that actually go wrong on a small
     instance: memory, and whether the model is really loaded."""
     return {"ok": True, "rss_mb": _rss_mb(), "ai": analysis.state()}
+
 
 
 @app.post("/sms")
@@ -150,8 +176,8 @@ def demo_page():
     spare tyre, and P3 owns it."""
     page = pathlib.Path(__file__).resolve().parent.parent / "web" / "index.html"
     if page.exists():
-        return HTMLResponse(page.read_text())
+        return HTMLResponse(page.read_text(encoding="utf-8"))
     return HTMLResponse(
         "<p>Demo page not built yet. The backend is up: "
-        "<a href='/docs'>/docs</a>, <a href='/health'>/health</a>.</p>"
+        "<a href='/docs'>/docs</a></p>"
     )

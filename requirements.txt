@@ -1,7 +1,7 @@
-# What the server needs to run. Keep it small: the free tiers that host this
-# are memory- and cold-start-bound, and the AI stack is 6x this size.
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+# The web server alone: enough to boot, run the tests and serve the demo with
+# the keyword fallback (USE_REAL_AI=0). The models are in requirements-ai.txt.
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
 python-multipart==0.0.20
 httpx==0.28.1
 python-dotenv==1.2.4
