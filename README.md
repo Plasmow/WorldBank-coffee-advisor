@@ -97,6 +97,23 @@ curl -s -XPOST localhost:8000/api/demo/send -H 'content-type: application/json' 
      -d "{\"phone\":\"$P\",\"text\":\"3\"}"                      # worse -> an agent is paged
 ```
 
+## Deploy
+
+Render's free tier is the default: `render.yaml` is committed, 512 MB is ten
+times what the server needs with the AI off, and the URL survives closing the
+laptop. It sleeps after 15 minutes idle and takes 30-60 s to wake, so ping
+`/health` every 10 minutes during a demo window.
+
+```bash
+pip install -r requirements.txt     # 20 MB, no AI stack
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+Install `requirements-ai.txt` instead (125 MB) only once `USE_REAL_AI=1` is
+worth setting — that is, once `ai/analyze.py` actually exposes `analyze()`.
+Until then the keyword stand-in gives better answers than a chain that fails
+and escalates every message.
+
 ## Deploy on Replit
 
 `.replit` is committed. Everything else is three steps.

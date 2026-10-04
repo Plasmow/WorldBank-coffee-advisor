@@ -49,9 +49,8 @@ def _ensure_model():
 
 @lru_cache(maxsize=1)
 def get_translator():
-    import ctranslate2
-
     path = _ensure_model()
+    import ctranslate2  # after the model check: the slim install has no ctranslate2
     compute_type = os.environ.get("NLLB_COMPUTE_TYPE") or "int8"
     log.info("loading CTranslate2 model from %s (%s)", path, compute_type)
     return ctranslate2.Translator(str(path), device="cpu", compute_type=compute_type)

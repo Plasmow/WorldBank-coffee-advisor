@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: coffee-advisor
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.14"
+      # The free disk is wiped on every deploy; demo conversations are
+      # disposable anyway, and each visitor starts fresh.
+      - key: DB_PATH
+        value: /tmp/coffee.db
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_API_KEY
+        sync: false
+      - key: AGENT_PHONE
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
