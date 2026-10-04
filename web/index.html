@@ -140,7 +140,7 @@ main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content
     <button class="btn primary" id="playBtn">Play scenario</button>
     <button class="btn" id="resetBtn">Reset</button>
     <label class="live" id="liveWrap" hidden>
-      <input type="checkbox" id="liveToggle">
+      <input type="checkbox" id="liveToggle" autocomplete="off">
       <span id="liveLabel">Live SMS</span>
     </label>
   </div>
@@ -430,6 +430,7 @@ function showEvent(text, ok){const e=$('event'); e.textContent=text; e.className
 function fmtTs(ts){ if(!ts) return ''; const d=new Date(ts); if(isNaN(d)) return String(ts);
   return d.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit',timeZone:TZ}); }
 async function poll(){
+  if(!CONFIG.phone) CONFIG.phone = CONFIG.demoPhone;   // self-heal rather than hammer the API
   try{
     const d = await api(`/api/demo/state?phone=${encodeURIComponent(CONFIG.phone)}`);
     S.connected=true; S.everConnected=true; S.now=d.now||null;
@@ -528,7 +529,11 @@ async function loadConfig(){
 }
 async function setLive(on){
   if(S.playing) return;
-  CONFIG.phone = on ? LIVE.live_phone : CONFIG.demoPhone;
+  // Never take the page offline over this. A restored checkbox, a server
+  // restarted without DEMO_LIVE_PHONE, a failed config fetch -- any of them
+  // used to leave CONFIG.phone null and every poll asking for phone=null.
+  if(!LIVE || !LIVE.live_phone) on = false;
+  CONFIG.phone = (on ? LIVE.live_phone : CONFIG.demoPhone) || CONFIG.demoPhone;
   $('liveWrap').classList.toggle('on', on);
   $('liveToggle').checked = on;
   showEvent(on
