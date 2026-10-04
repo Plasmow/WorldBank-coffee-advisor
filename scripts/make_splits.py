@@ -133,9 +133,12 @@ def load_rows(args, drops: Counter) -> list[dict]:
         # instead of landing whole in a single split.
         n = seen_per_topic[topic]
         seen_per_topic[topic] += 1
+        # The hand-written file is small; big blocks put a whole topic in one
+        # split and the register it adds never gets measured.
+        block = args.sms_gap_block if rec.get("source") == "handwritten" else args.sms_block
         slug = re.sub(r"[^a-z]+", "-", topic.lower()).strip("-")[:28]
         rows.append({"text": text, "label": label,
-                     "group": f"sms-{slug}-{n // args.sms_block:03d}",
+                     "group": f"sms-{slug}-{n // block:03d}",
                      "source_id": f"sms#{i}", "kind": "sms"})
     return rows
 
@@ -179,6 +182,7 @@ def main() -> None:
     ap.add_argument("--other", type=Path, default=SYN / "other_messages.jsonl")
     ap.add_argument("--sms", type=Path, default=SYN / "sms_en.jsonl")
     ap.add_argument("--sms-gap", type=Path, default=SYN / "sms_gap_en.jsonl")
+    ap.add_argument("--sms-gap-block", type=int, default=4)
     ap.add_argument("--sms-block", type=int, default=8,
                     help="SMS per group: smaller spreads one topic over more splits")
     ap.add_argument("--hard-test", type=Path, default=Path("data/eval/hard_test.csv"))

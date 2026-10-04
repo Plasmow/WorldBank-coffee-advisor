@@ -31,9 +31,19 @@ two gaps the topics left: shoot-tip dieback (1 of 116 generated phoma messages
 mentioned it, though it is a defining symptom) and genuinely healthy leaves
 with no marks (the generator produced none). Marked `source: handwritten`.
 
-Messages are grouped in blocks of eight per topic so one topic spreads across
-train, calib and test. 5 of 52 held-out SMS still have a close paraphrase in
-train (difflib ratio >= 0.8), so held-out SMS accuracy is somewhat optimistic.
+Messages are grouped per topic so one topic spreads across train, calib and
+test: blocks of eight for the generated file, four for the hand-written one,
+which is small enough that eight put a whole register in a single split.
+5 of 52 held-out SMS still have a close paraphrase in train (difflib ratio
+>= 0.8), so held-out SMS accuracy is somewhat optimistic.
+
+**`domain_pairs.jsonl` is not a test set.** Its 314 Luganda lines are
+translations of the 314 English messages in `sms_en.jsonl`, so 230 of them
+are now training rows. Quoting a score over all 314 measures the model
+against its own training data. The honest figure is the 84 pairs whose
+English landed in calib or test: 85.7% correct label through translation and
+classification (leaf_rust 92%, phoma 81%, other 86%), and 78% on
+`data/eval/hard_test.csv`.
 
 ## Translator
 
