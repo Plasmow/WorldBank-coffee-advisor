@@ -1,15 +1,12 @@
 [project]
-name = "worldbankagriculture"
-version = "0.1.0"
-description = "Add your description here"
+name = "coffee-advisor"
+version = "1.0.0"
+description = "SMS crop-disease advisor for smallholder coffee farmers on basic phones, in Luganda and English"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "dotenv>=0.9.9",
-    "fastapi>=0.142.2",
-    "httpx>=0.28.1",
-    "ollama>=0.6.3",
-    "resource>=0.2.1",
-    "torch>=2.14.1",
-    "uvicorn>=0.54.0",
-]
+
+# Dependencies are pinned in requirements.txt (web server) and
+# requirements-ai.txt (full AI chain). See the README.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

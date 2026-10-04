@@ -5,10 +5,10 @@
     uv run python scripts/convert_nllb_ct2.py
 
 Downloads ~2.4 GB and writes ~600 MB into model/nllb-ct2-int8/. That folder is
-gitignored: weights never go in git. To get it onto Replit, either upload the
+gitignored: weights never go in git. To get it onto a host, either upload the
 folder or push it to a Hugging Face repo and set NLLB_CT2_REPO.
 
-torch is needed here and only here -- the server runs on CTranslate2 alone.
+torch reads the Hugging Face weights here; the translator itself runs on CTranslate2 alone.
 """
 
 import pathlib
