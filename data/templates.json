@@ -1,7 +1,20 @@
 {
-    "Healthy":"The leaf looks healthy",
-    "Rust":"It looks like the leaf has rust",
-    "Phoma":"It looks like the leaf has phoma",
-    "clarify":"Some clarification is needed for the diagnosis",
-    "unsure":"It is unclear what the diagnosis is."
+  "Healthy": "The leaf looks healthy",
+  "Rust": "It looks like the leaf has rust",
+  "Phoma": "It looks like the leaf has phoma",
+  "Unknown": "It is unclear what the diagnostic is.",
+  "welcome": "Coffee Advisor. Free crop advice by SMS. Describe your coffee plants, or send PRICE for market rates, HELP for options, STOP to opt out.",
+  "help": "Send PRICE for coffee prices, AGENT to reach a person, or describe the leaves of your coffee plants. STOP to opt out.",
+  "prices": "UCDA farm-gate prices {date}: {body} UGX per kg.",
+  "prices_unavailable": "Prices are not available right now. Please try again later.",
+  "stop_ack": "You will get no more messages. Send START to resume.",
+  "start_ack": "Welcome back. Describe your coffee plants, or send PRICE.",
+  "clarify": "To be sure: are the marks on the leaves or on the berries, and what colour are they?",
+  "unsure": "I am not sure what this is. A field agent has been alerted and will contact you.",
+  "followup_q": "How are your coffee plants 3 days on? Reply 1 better, 2 same, 3 worse.",
+  "followup_ok": "Good. Keep following the advice. Send a new message any time.",
+  "followup_worse": "Sorry to hear that. A field agent has been alerted and will contact you.",
+  "ussd_menu": "Coffee Advisor\n1. Coffee prices\n2. Report a symptom\n3. Talk to an agent",
+  "ussd_ask_symptom": "Describe what you see on your coffee plants.",
+  "agent_requested": "An agent has been alerted and will contact you soon."
 }
