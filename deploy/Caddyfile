@@ -1,0 +1,10 @@
+# Caddy gets a Let's Encrypt certificate on its own and renews it. Africa's
+# Talking and the Lovable page both need HTTPS, so this is not optional.
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   (edit the hostname first)
+#   sudo systemctl reload caddy
+#
+# No domain? Put your VM's public IP in front of .sslip.io and it resolves to
+# itself, which is enough for Let's Encrypt:  203.0.113.5.sslip.io
+your-host.example.com {
+    reverse_proxy 127.0.0.1:8000
+}
