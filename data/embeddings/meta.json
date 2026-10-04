@@ -1,0 +1,26 @@
+{
+ "model": "intfloat/e5-small-v2",
+ "prefix": "query: ",
+ "dim": 384,
+ "normalized": true,
+ "rows": {
+  "train": {
+   "healthy": 244,
+   "leaf_rust": 292,
+   "other": 390,
+   "phoma": 269
+  },
+  "calib": {
+   "healthy": 47,
+   "leaf_rust": 62,
+   "other": 90,
+   "phoma": 48
+  },
+  "test": {
+   "healthy": 42,
+   "leaf_rust": 40,
+   "other": 90,
+   "phoma": 54
+  }
+ }
+}

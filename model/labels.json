@@ -1,0 +1,4 @@
+{
+  "labels": ["healthy", "leaf_rust", "phoma", "unknown"],
+  "threshold": 0.8
+}

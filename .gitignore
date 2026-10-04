@@ -219,6 +219,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+data/raw/
 coffee_dataset/
 roadmap.pdf
 ai/nllb-600m-ct2/
