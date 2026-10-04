@@ -1,0 +1,33 @@
+text,label,why_hard
+"The leaf is a bit pale and has dust on it from the road but no spots anywhere, I think it is fine",healthy,Looks suspicious (pale/dust) but healthy
+"there are shiny drops on the leaf this morning and some shadow marks, is it sick?",healthy,Dew and shadows mistaken for disease
+"My daughter took the photo, the leaf is dark green and a small ant is walking on it",healthy,Irrelevant detail (insect) with a healthy leaf
+"one old leaf at the bottom turned yellow and fell but all the new ones look normal",healthy,Natural leaf ageing described as a problem
+"just checking, everything is green and shiny, no marks, i only want to be sure",healthy,Worried tone but nothing wrong
+"leaf has a tiny torn edge from the wind otherwise clean and green",healthy,Mechanical damage that is not a disease
+"Orange powder comes off on my fingers when I touch the underside of the leaf",leaf_rust,Key sign described without any disease word
+"yellow patches on top, and below each one there is a rusty dust, many leaves like this",leaf_rust,Two-sided description
+"the spots are small and yellow, then become orange, the leaves are dropping from the lower branches",leaf_rust,Progression story with leaf drop
+"leaf have orange spot but also some brown dry edge from the sun",leaf_rust,Mixed with sun scorch (distractor)
+"my wife says it looks like someone sprinkled orange flour on the back of the leaves",leaf_rust,Figurative language
+"orange dots on leaf. rain every day here. whole row same",leaf_rust,Very short telegraphic style
+"Brown spots with a pale center on young leaves and the tips of the small branches are dying back",phoma,Spots plus dieback
+"dark brown to black blotches on the new leaves after the cold and wet weeks, the shoots are drying",phoma,Cold and wet context
+"the spots are big and dark and the leaf looks burnt but there is no orange anywhere",phoma,Explicitly says no orange (rust lookalike)
+"young leaves at the top have dark patches with a yellow border, the tender tips look dead",phoma,Yellow border like rust but dark spots
+"dark spots on leaves in the high shaded plot only, the lower plot is clean",phoma,Location-based description
+"leaf got black spot spreading from the edge, it is not orange and not powder",phoma,Ruling out rust by hand
+"leaves are brown and crispy at the edges and curled, no spots, no powder, very hot week",other,Heat stress that looks like disease
+"the whole tree is wilting and the bark at the base is cracked, leaves are still green",other,Wilt-like trunk problem (not a leaf disease)
+"white cotton-like things under the leaves and sticky black stuff on top",other,Pest (mealybug/sooty mould) not in the classes
+"leaf has twisting white tunnel lines inside like someone drew with a pencil",other,Leaf miner lookalike
+"cherries are turning black on the branch and dropping early",other,Fruit problem not a leaf problem
+"leaves yellow between the veins and the plant is not growing, I put no fertilizer this year",other,Nutrient deficiency lookalike
+"how much is a kilo of coffee at the market today?",other,Off topic: price
+"where can I buy a good sprayer near Mbale?",other,Off topic: equipment
+"thank you for the advice last time, it worked. god bless",other,Off topic: thanks
+"can you call me back about the school fees money",other,Off topic: unrelated personal message
+"my maize leaves have orange spots, is it the same as coffee rust?",other,Mentions rust and orange but about maize
+"my goat ate the coffee leaves, will it die?",other,Off topic: animal; contains coffee leaves
+"hello",other,Too short to classify
+"asdf qwerty ???",other,Noise
