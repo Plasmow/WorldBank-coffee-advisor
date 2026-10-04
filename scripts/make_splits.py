@@ -115,8 +115,9 @@ def assign(groups_by_label: dict, existing: dict, ratios: dict, seed: int) -> di
             if g in assignment:
                 counts[assignment[g]] += w
         placed = sum(counts.values())
+        # Biggest units first (they are the hardest to fit), ties in a seeded hash order.
         todo = sorted((g for g in groups if g not in assignment),
-                      key=lambda g: hashlib.sha256(f"{seed}:{g}".encode()).hexdigest())
+                      key=lambda g: (-groups[g], hashlib.sha256(f"{seed}:{g}".encode()).hexdigest()))
         for g in todo:
             w = groups[g]
             best = max(SPLIT_NAMES, key=lambda s: ratios[s] * (placed + w) - counts[s])
@@ -135,9 +136,9 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=SYN / "dataset.jsonl")
     ap.add_argument("--ratios", type=float, nargs=3, default=(0.70, 0.15, 0.15), metavar=("TRAIN", "CALIB", "TEST"))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--block", type=int, default=150,
+    ap.add_argument("--block", type=int, default=100,
                     help="photos: numbers n//BLOCK form one block that goes to a single split")
-    ap.add_argument("--gap", type=int, default=30,
+    ap.add_argument("--gap", type=int, default=20,
                     help="photos: drop images within GAP numbers of a neighbouring block of another split")
     ap.add_argument("--keep-flagged", action="store_true", help="keep photo texts containing 'rust', disease names, ...")
     ap.add_argument("--keep-inconsistent", action="store_true",
