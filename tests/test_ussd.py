@@ -47,11 +47,20 @@ def test_entry_2_then_a_symptom_gives_the_advice(client):
     assert "rust" in body.lower()
 
 
-def test_entry_2_unclear_hands_over_to_a_human(client, agent_sms):
-    body = ussd(client, "2*zzzz qwerty")
+def test_entry_2_out_of_scope_hands_over_to_a_human(client, agent_sms):
+    body = ussd(client, "2*my coffee berries are falling off")
     assert body.startswith("END ")
     assert "not sure" in body.lower()
     assert agent_sms
+
+
+def test_entry_2_gibberish_ends_with_the_question(client, agent_sms):
+    # The session closes, but the pending question survives: her SMS answer
+    # completes the diagnosis.
+    body = ussd(client, "2*zzzz qwerty")
+    assert body.startswith("END ")
+    assert "are the marks" in body
+    assert not agent_sms
 
 
 def test_entry_3_calls_a_human(client, agent_sms):

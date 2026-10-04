@@ -61,9 +61,16 @@ def test_clarify_then_advice(client):
 
 # 3. transmission a l'agent
 def test_escalate_to_agent(client):
-    r = send(client, NOOR, "zzzz qwerty")
+    r = send(client, NOOR, "my coffee berries are falling off")
     assert any("not sure" in m.lower() for m in r["replies"])
     assert "agent_alert" in kinds(r)
+
+
+def test_gibberish_earns_one_question_before_the_agent(client):
+    first = send(client, NOOR, "zzzz qwerty")
+    assert "agent_alert" not in kinds(first)
+    second = send(client, NOOR, "still zzzz")
+    assert "agent_alert" in kinds(second)
 
 
 def test_escalate_when_clarification_does_not_help(client):
@@ -229,10 +236,10 @@ def test_keyword_messages_are_stored_without_an_analysis(client):
 
 
 def test_agent_alert_carries_number_original_translation_and_label(client, agent_sms):
-    send(client, NOOR, "zzzz qwerty")
+    send(client, NOOR, "insects on my coffee stems")
     alert = agent_sms[-1]
     assert alert["to"] == "+256700000099"
-    for part in (NOOR, "zzzz qwerty", "other"):
+    for part in (NOOR, "insects on my coffee stems", "other"):
         assert part in alert["text"]
 
 
@@ -242,3 +249,22 @@ def test_outbound_to_the_farmer_is_logged(client, caplog):
     with caplog.at_level(logging.INFO, logger="app.at_client"):
         send(client, NOOR, RUST)
     assert any("rust" in r.getMessage().lower() for r in caplog.records)
+
+
+def test_agent_keyword_pages_a_human(client, agent_sms):
+    r = send(client, NOOR, "AGENT")
+    assert any("agent has been alerted" in m.lower() for m in r["replies"])
+    assert "agent_alert" in kinds(r)
+    assert agent_sms and NOOR in agent_sms[-1]["text"]
+
+
+def test_agent_keyword_never_reaches_the_ai(client, monkeypatch):
+    import app.router
+
+    monkeypatch.setattr(app.router, "analyze", _boom)
+    assert send(client, NOOR, "agent")["replies"]
+
+
+def test_agent_inside_a_sentence_is_a_symptom_not_the_keyword(client):
+    r = send(client, NOOR, "my agent said the leaves have orange powder")
+    assert any("rust" in m.lower() for m in r["replies"])

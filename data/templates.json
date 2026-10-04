@@ -4,7 +4,7 @@
   "Phoma": "It looks like the leaf has phoma",
   "Unknown": "It is unclear what the diagnostic is.",
   "welcome": "Coffee Advisor. Free crop advice by SMS. Describe your coffee plants, or send PRICE for market rates, HELP for options, STOP to opt out.",
-  "help": "Send PRICE for coffee prices, or describe what you see on your plants (leaves, berries). STOP to opt out. We alert an agent when unsure.",
+  "help": "Send PRICE for coffee prices, AGENT to reach a person, or describe the leaves of your coffee plants. STOP to opt out.",
   "prices": "UCDA farm-gate prices {date}: {body} UGX per kg.",
   "prices_unavailable": "Prices are not available right now. Please try again later.",
   "stop_ack": "You will get no more messages. Send START to resume.",

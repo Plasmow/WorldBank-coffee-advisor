@@ -16,6 +16,7 @@ MAX_IN = 1000  # a gateway can hand us anything; the classifier does not need mo
 KEYWORDS = {
     "PRICE": ("price", "prices", "prix"),
     "HELP": ("help", "aide"),
+    "AGENT": ("agent",),
     "STOP": ("stop",),
     "START": ("start",),
 }
@@ -80,6 +81,11 @@ def handle_incoming(phone, text):
         alert_agent(phone, ts, text, note="asked for HELP")
         return sent
 
+    if kw == "AGENT":
+        say("agent_requested")
+        alert_agent(phone, ts, text, note="asked for an agent")
+        return sent
+
     if row["pending_kind"] == "followup":
         db.set_user(phone, pending_kind=None)
         answer = FOLLOWUP_ANSWERS.get(text.strip())
@@ -108,18 +114,19 @@ def handle_incoming(phone, text):
 
 def _respond(phone, ts, say, result, original):
     decision = result.get("decision")
+    template = result.get("template_id")
 
     if decision == "clarify":
         db.set_user(phone, pending_kind="clarify", pending_text=original)
-        say("clarify")
+        say(template or "clarify")
         return
 
     if decision == "escalate":
-        say("unsure")
+        say(template or "unsure")
         alert_agent(phone, ts, original, result=result)
         return
 
-    say(result.get("template_id") or "Unknown")
+    say(template or "unsure")
     if result.get("label") in ("leaf_rust", "phoma"):
         scheduler.schedule(phone, "followup", clock.followup_due(ts))
 
@@ -137,6 +144,8 @@ def alert_agent(phone, ts, original, result=None, note=""):
     if result:
         lines.append(f"English: {result.get('text_en') or original}")
         lines.append(f"Proposed: {result.get('label', '?')} (p={result.get('proba', 0):.2f})")
+        if result.get("reason"):
+            lines.append(f"Why: {result['reason']}")
     text = "\n".join(lines)
 
     db.event(phone, "agent_alert", text, ts)
