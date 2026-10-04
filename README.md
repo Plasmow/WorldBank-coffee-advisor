@@ -2,10 +2,13 @@
 
 Offline Small AI assistant helping smallholder coffee farmers diagnose crop problems and make better decisions, built for basic phones, low connectivity and local languages.
 
-## Run it
+## Run it locally
+
+`uv` and `--reload` are for a laptop. A host has neither: see **Deploy** for
+the command servers actually run.
 
 ```bash
-uv venv --python 3.12            # Replit runs 3.12; uv fetches it, no pyenv needed
+uv venv --python 3.12            # uv fetches 3.12 itself, no pyenv needed
 uv pip install -r requirements.txt
 uv run uvicorn app.main:app --reload
 ```
@@ -99,15 +102,23 @@ curl -s -XPOST localhost:8000/api/demo/send -H 'content-type: application/json' 
 
 ## Deploy
 
+**The command a host runs**, on Render or anywhere else — no `uv`, no
+`--reload`, and bind the port the platform hands you or it will report no
+open ports and fail the deploy:
+
+```bash
+pip install -r requirements.txt                          # build
+uvicorn app.main:app --host 0.0.0.0 --port $PORT         # start
+```
+
+`render.yaml` already says this, but Render only reads it when the service is
+created as a **Blueprint**. A manually created Web Service ignores the file
+and uses the fields in the dashboard, so set both there.
+
 Render's free tier is the default: `render.yaml` is committed, 512 MB is ten
 times what the server needs with the AI off, and the URL survives closing the
 laptop. It sleeps after 15 minutes idle and takes 30-60 s to wake, so ping
 `/health` every 10 minutes during a demo window.
-
-```bash
-pip install -r requirements.txt     # 20 MB, no AI stack
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
 
 Install `requirements-ai.txt` instead (125 MB) only once `USE_REAL_AI=1` is
 worth setting — that is, once `ai/analyze.py` actually exposes `analyze()`.
