@@ -2,13 +2,15 @@ import asyncio
 import logging
 import os
 import pathlib
+import resource
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
-from app import db, scheduler
+from app import analysis, db, scheduler
 from app.demo_routes import api
 from app.router import handle_incoming
 from app.ussd import api as ussd_api
@@ -29,6 +31,9 @@ async def _background():
 @asynccontextmanager
 async def lifespan(app):
     db.init()
+    # Load the models here, not on Noor's first message: she would wait the
+    # whole cold start, and Africa's Talking would have given up long before.
+    analysis.preload()
     task = asyncio.create_task(_background())
     yield
     task.cancel()
@@ -45,9 +50,17 @@ app.include_router(api)
 app.include_router(ussd_api)
 
 
+def _rss_mb():
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # macOS reports bytes, Linux kilobytes.
+    return round(rss / (1024 ** 2 if sys.platform == "darwin" else 1024), 1)
+
+
 @app.get("/health")
 def health():
-    return {"ok": True}
+    """Liveness, plus the two things that actually go wrong on a small
+    instance: memory, and whether the model is really loaded."""
+    return {"ok": True, "rss_mb": _rss_mb(), "ai": analysis.state()}
 
 
 @app.post("/sms")

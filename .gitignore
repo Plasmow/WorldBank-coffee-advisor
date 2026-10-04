@@ -222,3 +222,4 @@ __marimo__/
 coffee_dataset/
 # Coffee Advisor
 data/app.db*
+model/nllb-ct2-int8/
