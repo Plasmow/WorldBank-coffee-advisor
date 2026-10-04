@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate model/classifier.joblib with three separate numbers.
+"""Evaluate model/classifier.joblib: three separate numbers, a threshold sweep and a confusion matrix.
 
 For every message the model either ANSWERS with a class or ABSTAINS ("unknown", when the
 entropy is above the threshold). Each message therefore ends in one of three outcomes:
@@ -19,11 +19,20 @@ the abstention rate alone hides the errors. Look at the three together.
 An abstention on a message whose true label is "other" is harmless, so it is also
 reported separately from abstentions on real disease / healthy messages.
 
+An abstention is a message handed over to a human (the "handoff rate"). Also printed:
+    - a threshold sweep: for several entropy thresholds, the precision (accuracy on answered),
+      the handoff rate and the confident-error rate. It shows what a stricter or looser threshold
+      would cost; the line marked "<- saved" is the threshold stored in the model;
+    - a confusion matrix (rows = true label, columns = predicted label, last column = handed over).
+
 Data (one or more of):
     --split test|calib   texts of data/embeddings/<split>.npz (already embedded)
     --csv FILE           a csv with columns text,label (embedded here with the model's embedder),
                          e.g. data/eval/hard_test.csv
 With no option: --split test and --csv data/eval/hard_test.csv (if it exists).
+
+Not done: robustness after NLLB translation (round-trip en -> sw/lg -> en). ai/translate.py is
+still empty and the NLLB weights are not downloaded.
 
 Run from the repo root:  python scripts/evaluate.py [--show] [--threshold 0.4]
 """
@@ -41,13 +50,14 @@ from train_classifier import entropy_norm
 OTHER = "other"
 
 
-def predict(bundle: dict, X: np.ndarray, threshold: float | None = None) -> tuple[list[str], np.ndarray]:
-    """(class or reject label for every row, normalised entropy)."""
+def predict(bundle: dict, X: np.ndarray, threshold: float | None = None) -> tuple[list[str], np.ndarray, list[str]]:
+    """(class or reject label for every row, normalised entropy, most likely class before any rejection)."""
     p = softmax(bundle["model"].decision_function(X) / bundle["temperature"], axis=1)
     h = entropy_norm(p)
     thr = bundle["entropy_threshold"] if threshold is None else threshold
-    out = [bundle["reject_label"] if hh > thr else bundle["classes"][i] for i, hh in zip(p.argmax(1), h)]
-    return out, h
+    top = [bundle["classes"][i] for i in p.argmax(1)]
+    out = [bundle["reject_label"] if hh > thr else c for c, hh in zip(top, h)]
+    return out, h, top
 
 
 def load_split(emb_dir: Path, split: str) -> tuple[np.ndarray, list[str], list[str]]:
@@ -66,9 +76,38 @@ def load_csv(path: Path, bundle: dict) -> tuple[np.ndarray, list[str], list[str]
     return X, texts, labels
 
 
+SWEEP = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0)
+
+
+def sweep_table(h: np.ndarray, top: list[str], labels: list[str], saved: float) -> None:
+    """Precision / handoff rate / confident-error rate for several entropy thresholds."""
+    right = np.array([c == l for c, l in zip(top, labels)])
+    print("  threshold sweep (precision = accuracy on answered; handoff = sent to a human):")
+    print(f"  {'entropy <=':>11s}{'precision':>11s}{'handoff':>9s}{'conf. error':>13s}")
+    for t in sorted(set(SWEEP) | {round(saved, 3)}):
+        answered = h <= t
+        k = int(answered.sum())
+        ok = int((right & answered).sum())
+        prec = f"{ok / k:11.1%}" if k else f"{'-':>11s}"
+        mark = "  <- saved" if abs(t - round(saved, 3)) < 1e-9 else ""
+        print(f"  {t:11.3f}{prec}{1 - k / len(h):9.1%}{(k - ok) / len(h):13.1%}{mark}")
+
+
+def confusion(labels: list[str], pred: list[str], classes: list[str], reject: str) -> None:
+    """Rows = true label, columns = predicted label; the last column is the messages handed over."""
+    cols = list(classes) + [reject]
+    m = Counter(zip(labels, pred))
+    rows = [c for c in classes if c in set(labels)]
+    print("  confusion matrix (rows = true, columns = predicted):")
+    print(f"  {'':12s}" + "".join(f"{c[:10]:>11s}" for c in cols))
+    for r in rows:
+        print(f"  {r:12s}" + "".join(f"{m[(r, c)]:11d}" for c in cols))
+
+
 def evaluate(name: str, bundle: dict, X, texts, labels, threshold, show: bool) -> None:
     reject = bundle["reject_label"]
-    pred, h = predict(bundle, X, threshold)
+    pred, h, top = predict(bundle, X, threshold)
+    saved = bundle["entropy_threshold"] if threshold is None else threshold
     n = len(labels)
     abstain = [p == reject for p in pred]
     correct = [p == l for p, l in zip(pred, labels)]
@@ -78,14 +117,19 @@ def evaluate(name: str, bundle: dict, X, texts, labels, threshold, show: bool) -
     abs_other = sum(a and l == OTHER for a, l in zip(abstain, labels))
     missed = sum(e and p == OTHER and l != OTHER for e, p, l in zip(confident_err, pred, labels))
 
-    print(f"\n=== {name}: {n} messages (entropy threshold {threshold if threshold is not None else bundle['entropy_threshold']:.3f}) ===")
+    print(f"\n=== {name}: {n} messages (entropy threshold {saved:.3f}) ===")
     print(f"  correct answers       : {n_ok:4d}  {n_ok / n:6.1%}")
     print(f"  confident errors      : {n_err:4d}  {n_err / n:6.1%}   <- wrong and not flagged")
-    print(f"  abstentions (unknown) : {n_abs:4d}  {n_abs / n:6.1%}   "
+    print(f"  handoff (unknown)     : {n_abs:4d}  {n_abs / n:6.1%}   "
           f"({abs_other} on true '{OTHER}' = harmless, {n_abs - abs_other} on in-scope messages = lost answers)")
     print(f"  accuracy on answered  : {n_ok / n_ans:6.1%}   ({n_ok}/{n_ans} answered)" if n_ans else "  nothing answered")
     print(f"  of the confident errors, in-scope message labelled '{OTHER}' (missed problem): {missed}")
 
+    print()
+    sweep_table(h, top, labels, saved)
+    print()
+    confusion(labels, pred, bundle["classes"], reject)
+    print()
     per = Counter()
     for l, a, c in zip(labels, abstain, correct):
         per[(l, "abstain" if a else "correct" if c else "error")] += 1

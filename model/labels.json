@@ -1,1 +1,4 @@
-["healthy", "leaf_rust", "phoma", "coffee_wilt_disease", "unknown"]
+{
+  "labels": ["healthy", "leaf_rust", "phoma", "unknown"],
+  "threshold": 0.8
+}
