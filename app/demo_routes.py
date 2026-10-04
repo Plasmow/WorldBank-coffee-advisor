@@ -1,12 +1,25 @@
 """Demo surface for the Lovable page. Each visitor gets a +256799... number
 and their own simulated clock; nothing here ever reaches Africa's Talking."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app import clock, db, router, scheduler
 
 api = APIRouter(prefix="/api/demo")
+
+
+def demo_phone(raw):
+    """Normalise, and refuse anything that is not a demo number.
+
+    These routes are public on Replit. Without this, anyone could read a real
+    farmer's whole conversation by guessing her number, or make the server
+    send SMS on our Africa's Talking credit.
+    """
+    phone = db.norm_phone(raw)
+    if not clock.is_demo(phone):
+        raise HTTPException(400, f"demo numbers only (must start with {clock.DEMO_PREFIX})")
+    return phone
 
 
 class Send(BaseModel):
@@ -26,7 +39,7 @@ class Phone(BaseModel):
 
 @api.post("/send")
 def send(body: Send):
-    phone = db.norm_phone(body.phone)
+    phone = demo_phone(body.phone)
     scheduler.run_due(phone)  # the instance may have slept through the due time
     replies = router.handle_incoming(phone, body.text)
     return {"replies": replies, **state(phone)}
@@ -34,7 +47,7 @@ def send(body: Send):
 
 @api.get("/state")
 def state(phone: str):
-    phone = db.norm_phone(phone)
+    phone = demo_phone(phone)
     scheduler.run_due(phone)
     return {
         "now": clock.iso(clock.now(phone)),
@@ -60,7 +73,7 @@ def state(phone: str):
 
 @api.post("/clock")
 def set_clock(body: SetClock):
-    phone = db.norm_phone(body.phone)
+    phone = demo_phone(body.phone)
     if body.slot not in clock.SLOT_HOUR:
         return {"error": f"slot must be one of {sorted(clock.SLOT_HOUR)}"}
     db.user(phone)
@@ -71,6 +84,6 @@ def set_clock(body: SetClock):
 
 @api.post("/reset")
 def reset(body: Phone):
-    phone = db.norm_phone(body.phone)
+    phone = demo_phone(body.phone)
     db.reset(phone)
     return {"ok": True}
