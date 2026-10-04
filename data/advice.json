@@ -1,0 +1,79 @@
+{
+  "_readme": "Knowledge base behind the advice SMS. The app does NOT read this file: it sends the texts of data/templates.json (keys adv_leaf_rust, adv_phoma, adv_healthy). This file records what each short SMS is based on and where it comes from, so it can be reviewed. 'sources' are ids of data/sources.json; an empty list means the item still has no source. status: draft -> reviewed (an extension officer or NaCORI checked it) -> approved. Do not add doses or product names before a local review.",
+  "leaf_rust": {
+    "sms_template": "adv_leaf_rust",
+    "status": "draft",
+    "reviewed_by": null,
+    "reviewed_on": null,
+    "recognise": [
+      {"text": "Orange or yellow powder, mostly under the leaf; pale yellow patches on the top side.", "sources": ["PLANTWISE_KB_CLR"]},
+      {"text": "Leaves fall early.", "sources": ["PLANTWISE_KB_CLR"]}
+    ],
+    "do": [
+      {"text": "Pick off the badly hit leaves and bury them.", "in_sms": true, "sources": []},
+      {"text": "Prune to open the bush: more air, shorter leaf wetness, and sprays can reach the inside of the canopy.", "in_sms": true, "sources": ["MDPI_CLR_KENYA", "PLANTWISE_BLOG_CLR"]},
+      {"text": "Weed the plot and keep the recommended spacing between trees.", "in_sms": true, "sources": ["MDPI_CLR_KENYA"]},
+      {"text": "Add manure or compost so the trees stay strong.", "in_sms": true, "sources": []},
+      {"text": "Ask the extension agent about a copper fungicide (the agent chooses product and timing).", "in_sms": true, "sources": ["UCDA_MANUALS", "RG_CLR_UGANDA_FARMERS"]}
+    ],
+    "avoid": [
+      {"text": "Do not buy or mix chemicals without the agent's advice.", "in_sms": false, "sources": []}
+    ],
+    "escalate_when": [
+      "The farmer answers 'worse' at the 3-day follow-up (template followup_worse).",
+      "Many trees are affected or leaves are falling widely."
+    ],
+    "longer_term": [
+      {"text": "Replant with rust-resistant varieties when renewing the plot.", "in_sms": false, "sources": ["MDPI_CLR_KENYA", "PLANTWISE_KB_CLR"]}
+    ]
+  },
+  "phoma": {
+    "sms_template": "adv_phoma",
+    "status": "draft",
+    "reviewed_by": null,
+    "reviewed_on": null,
+    "recognise": [
+      {"text": "Dark brown to black patches on leaves; young leaves and shoot tips turn black and die back.", "sources": ["EPPO_PHOMA", "CULTIVAR_PHOMA"]},
+      {"text": "Appears in cold, wet or windy weather, at higher altitude.", "sources": ["CULTIVAR_PHOMA", "ROASTOPEDIA_PHOMA"]}
+    ],
+    "do": [
+      {"text": "Cut off the black, dying tips and burn them.", "in_sms": true, "sources": ["CULTIVAR_PHOMA"]},
+      {"text": "Shelter young trees and nurseries from cold wind (windbreaks).", "in_sms": true, "sources": ["CULTIVAR_PHOMA"]},
+      {"text": "Prune and space the trees so the canopy dries faster after rain or mist.", "in_sms": false, "sources": ["CULTIVAR_PHOMA"]},
+      {"text": "Ask the extension agent about a preventive copper spray in cool, humid periods.", "in_sms": true, "sources": ["CULTIVAR_PHOMA", "UCDA_MANUALS"]}
+    ],
+    "avoid": [
+      {"text": "Avoid wounding the trees when pruning or weeding: wounds let the fungus in.", "in_sms": true, "sources": []},
+      {"text": "Do not over-apply nitrogen; keep fertilisation balanced.", "in_sms": false, "sources": ["CULTIVAR_PHOMA"]}
+    ],
+    "escalate_when": [
+      "The farmer answers 'worse' at the 3-day follow-up (template followup_worse).",
+      "Dieback reaches branches, not only the tips.",
+      "The classifier confuses it with leaf rust: ask template clarify_rust_phoma, then the agent."
+    ],
+    "longer_term": []
+  },
+  "healthy": {
+    "sms_template": "adv_healthy",
+    "status": "draft",
+    "reviewed_by": null,
+    "reviewed_on": null,
+    "recognise": [
+      {"text": "Leaves green, glossy and uniform, with no spots, patches or powder.", "sources": []}
+    ],
+    "do": [
+      {"text": "Keep weeding, mulching and pruning.", "in_sms": true, "sources": ["UCDA_MANUALS"]},
+      {"text": "Check under the leaves every week and text back if spots or powder appear.", "in_sms": true, "sources": ["PLANTWISE_BLOG_CLR"]}
+    ],
+    "avoid": [],
+    "escalate_when": [
+      "Marks or powder appear: describe them again (the app will classify the new message)."
+    ],
+    "longer_term": []
+  },
+  "other": {
+    "sms_template": null,
+    "status": "n/a",
+    "note": "No advice is ever given for 'other' or 'unknown' (see ai/analyze.py): one clarifying question, then a field agent (template unsure). Pests, berries, stems, roots, wilt, nutrients and water are not covered by the model (see docs/datasheet.md)."
+  }
+}

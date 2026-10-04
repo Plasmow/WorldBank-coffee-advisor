@@ -1,0 +1,91 @@
+{
+  "_readme": "Registry of the sources cited by data/advice.json (ids are referenced there). Found by web search on 2026-10-04; only titles and extracts were read, so every entry starts with verified=false. Set verified=true after reading the document and checking that it supports the advice that cites it. Prefer national authorities (type 'national') over reviews and secondary sites.",
+  "UCDA_MANUALS": {
+    "title": "Uganda Coffee Development Authority: manuals",
+    "publisher": "UCDA",
+    "type": "national",
+    "url": "https://ugandacoffee.go.ug/resource-center/manuals",
+    "note": "Download the ARABICA handbook from here. Only the Robusta handbook was found in the search results, and Mount Elgon is arabica.",
+    "verified": false
+  },
+  "UCDA_PUBLICATIONS": {
+    "title": "Uganda Coffee Development Authority: publications",
+    "publisher": "UCDA",
+    "type": "national",
+    "url": "https://ugandacoffee.go.ug/resource-center/publications",
+    "note": "Lists a regional agriculture handbook; check whether it covers leaf rust and phoma and the recommended copper fungicides.",
+    "verified": false
+  },
+  "NACORI_EXTENSION": {
+    "title": "NaCORI / NARO or the district extension officer (no document yet)",
+    "publisher": "National Coffee Research Institute (NARO), Uganda",
+    "type": "national",
+    "url": null,
+    "note": "To contact for validation of the final advice, especially fungicide products and timing for Mount Elgon.",
+    "verified": false
+  },
+  "PLANTWISE_KB_CLR": {
+    "title": "Coffee leaf rust: Hemileia vastatrix (Plantwise Knowledge Bank datasheet)",
+    "publisher": "CABI",
+    "type": "reference",
+    "url": "https://plantwiseplusknowledgebank.org/doi/full/10.1079/pwkb.20127801774",
+    "note": "Closest to an official factsheet for leaf rust: symptoms and control options.",
+    "verified": false
+  },
+  "PLANTWISE_BLOG_CLR": {
+    "title": "Coffee leaf rust: Spotting and managing Hemileia vastatrix",
+    "publisher": "Plantwise (CABI) blog",
+    "type": "reference",
+    "url": "https://blog.plantwise.org/2022/03/17/coffee-leaf-rust-spotting-and-managing-hemileia-vastatrix/",
+    "note": "Short, farmer-oriented description of symptoms and management.",
+    "verified": false
+  },
+  "MDPI_CLR_KENYA": {
+    "title": "Coffee Leaf Rust (Hemileia vastatrix) in Kenya: A Review",
+    "publisher": "Agronomy (MDPI), 2021, 11(12), 2590",
+    "type": "review",
+    "url": "https://www.mdpi.com/2073-4395/11/12/2590",
+    "note": "Pruning, spacing, shade, fungicides, resistant varieties. East African context.",
+    "verified": false
+  },
+  "RG_CLR_UGANDA_FARMERS": {
+    "title": "Farmer awareness, coping mechanisms and economic implications of coffee leaf rust disease in Uganda",
+    "publisher": "ResearchGate (journal article)",
+    "type": "study",
+    "url": "https://www.researchgate.net/publication/308535354_Farmer_awareness_coping_mechanisms_and_economic_implications_of_coffee_leaf_rust_disease_in_Uganda",
+    "note": "What Mount Elgon farmers actually do (weeding, Bordeaux mixture, sanitation). Describes practice, not a recommendation.",
+    "verified": false
+  },
+  "EPPO_PHOMA": {
+    "title": "Phoma costaricensis (PHOMCO), EPPO Global Database",
+    "publisher": "EPPO",
+    "type": "reference",
+    "url": "https://gd.eppo.int/taxon/PHOMCO",
+    "note": "Identification of the pathogen and its hosts.",
+    "verified": false
+  },
+  "CULTIVAR_PHOMA": {
+    "title": "Phoma spot or ascochyta spot of coffee",
+    "publisher": "Revista Cultivar",
+    "type": "secondary",
+    "url": "https://revistacultivar.com/articles/phoma-spot-or-ascochyta-spot-of-coffee",
+    "note": "Brazilian trade magazine: cultural control, windbreaks, balanced fertilisation, preventive copper. Find a primary source before relying on it.",
+    "verified": false
+  },
+  "ROASTOPEDIA_PHOMA": {
+    "title": "Phoma Leaf Spot (Phoma costarricensis)",
+    "publisher": "Roastopedia",
+    "type": "secondary",
+    "url": "https://roastopedia.com/phoma-leaf-spot/",
+    "note": "Summary page; use only to find primary sources.",
+    "verified": false
+  },
+  "RG_FARMERS_KNOWLEDGE_UGANDA": {
+    "title": "Farmers' Knowledge of Pests and Diseases in the Coffee-Banana Agroforestry Systems of Mid-Eastern Uganda",
+    "publisher": "ResearchGate (journal article)",
+    "type": "study",
+    "url": "https://www.researchgate.net/publication/330507455_Farmers'_Knowledge_of_Pests_and_Diseases_in_the_Coffee-Banana_Agroforestry_Systems_of_Mid-Eastern_Uganda",
+    "note": "Local context on how farmers recognise and name coffee diseases.",
+    "verified": false
+  }
+}
