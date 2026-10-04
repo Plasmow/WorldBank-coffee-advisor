@@ -57,3 +57,51 @@ def test_vague_message_is_never_answered():
     from ai.analyze import analyze
 
     assert analyze("my coffee looks strange")["decision"] != "answer"
+
+
+# The classifier was once trained only on photo captions for the three disease
+# classes, with 'other' as the only class written like an SMS. It learned the
+# register, not the disease: real messages scored other=1.00, phoma recall on
+# held-out SMS was 3%. These guard the fix.
+
+SMS_REGISTER = [
+    ("My coffee leaves have yellow powder underneath. Trees losing leaves fast.", "leaf_rust"),
+    ("Orange dust on coffee leaves. Started two weeks ago. Is this normal?", "leaf_rust"),
+    ("My coffee leaves have dark brown spots. What should I do?", "phoma"),
+    ("Help please. Coffee leaves turning black after last week cold nights.", "phoma"),
+    ("Good morning. What is the price of parchment coffee today?", "other"),
+]
+
+
+@pytest.mark.parametrize("text,expected", SMS_REGISTER)
+def test_the_classifier_reads_sms_register_not_just_photo_captions(text, expected):
+    from ai.classifier import classify
+
+    label, proba = classify(text)
+    assert label == expected, f"{text!r} -> {label} ({proba:.2f})"
+
+
+def test_held_out_sms_are_not_all_swept_into_other():
+    """Recall on the SMS the model never saw. It used to be 3% for phoma."""
+    import collections
+    import json
+    import pathlib
+
+    from ai.classifier import classify
+
+    rows = [json.loads(l) for l in
+            pathlib.Path("data/synthetic/dataset.jsonl").read_text().splitlines() if l.strip()]
+    held_out = [(r["text"], r["label"]) for r in rows
+                if r.get("kind") == "sms" and r["split"] == "test"]
+    assert len(held_out) >= 30, "the SMS never reached the dataset"
+
+    hits = collections.Counter()
+    totals = collections.Counter()
+    for text, truth in held_out:
+        totals[truth] += 1
+        hits[truth] += classify(text)[0] == truth
+
+    for label in ("leaf_rust", "phoma", "healthy"):
+        if totals[label]:
+            recall = hits[label] / totals[label]
+            assert recall >= 0.7, f"{label} recall {recall:.0%} on held-out SMS"

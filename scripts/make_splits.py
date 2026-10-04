@@ -4,6 +4,7 @@
 Inputs  (data/synthetic/):
     leaf_descriptions.jsonl   from describe_images.py  (group = near-duplicate photo group)
     other_messages.jsonl      from gen_other.py        (group = topic)
+    sms_en.jsonl              from gen_sms_en.py       (group = topic + block of 8)
 Outputs (data/synthetic/):
     dataset.jsonl   one row per text: text, label, group, split, source_id, kind
     splits.json     group -> split. FROZEN: groups already in it never move, so
@@ -69,6 +70,16 @@ def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+# gen_sms_en.py writes a topic, not a label. Two of its topics are not diseases.
+SMS_TOPIC_LABEL = {
+    "orange or yellow powder under coffee leaves": "leaf_rust",
+    "dark brown or black spots on coffee leaves": "phoma",
+    "coffee leaves that look green and healthy": "healthy",
+    "questions about coffee prices": "other",
+    "replies to an advisor: better": "other",
+}
+
+
 def load_rows(args, drops: Counter) -> list[dict]:
     rows = []
     for rec in read_jsonl(args.photo):
@@ -95,6 +106,29 @@ def load_rows(args, drops: Counter) -> list[dict]:
                 continue
             rows.append({"text": text, "label": rec["label"], "group": rec["group"],
                          "source_id": f"{rec['batch_id']}#{i}", "kind": rec.get("kind", "other")})
+
+    # SMS register. Without these the three disease classes are taught only in
+    # photo-caption register, and the model learns "caption vs SMS" instead of
+    # "disease vs not": every real message then lands in `other`.
+    seen_per_topic: Counter = Counter()
+    for i, rec in enumerate(read_jsonl(args.sms)):
+        topic = rec.get("topic")
+        label = SMS_TOPIC_LABEL.get(topic)
+        if label is None:
+            drops[f"sms: unmapped topic {topic!r}"] += 1
+            continue
+        text = (rec.get("text") or "").strip()
+        if len(text) < MIN_CHARS:
+            drops["sms: text shorter than %d characters" % MIN_CHARS] += 1
+            continue
+        # Several groups per topic, so one topic is spread over train/calib/test
+        # instead of landing whole in a single split.
+        n = seen_per_topic[topic]
+        seen_per_topic[topic] += 1
+        slug = re.sub(r"[^a-z]+", "-", topic.lower()).strip("-")[:28]
+        rows.append({"text": text, "label": label,
+                     "group": f"sms-{slug}-{n // args.sms_block:03d}",
+                     "source_id": f"sms#{i}", "kind": "sms"})
     return rows
 
 
@@ -135,6 +169,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--photo", type=Path, default=SYN / "leaf_descriptions.jsonl")
     ap.add_argument("--other", type=Path, default=SYN / "other_messages.jsonl")
+    ap.add_argument("--sms", type=Path, default=SYN / "sms_en.jsonl")
+    ap.add_argument("--sms-block", type=int, default=8,
+                    help="SMS per group: smaller spreads one topic over more splits")
     ap.add_argument("--hard-test", type=Path, default=Path("data/eval/hard_test.csv"))
     ap.add_argument("--splits", type=Path, default=SYN / "splits.json")
     ap.add_argument("--out", type=Path, default=SYN / "dataset.jsonl")
