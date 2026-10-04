@@ -7,22 +7,25 @@ Inputs  (data/embeddings/, from extract_embeddings.py): train.npz, calib.npz, te
     calib : temperature-scale the probabilities, then choose the "not sure" threshold
     test  : final numbers, printed once at the end. Nothing is tuned on it.
 
-The "not sure" rule: if the highest probability is below the threshold, answer
---reject-label instead. The threshold is the lowest one for which the accepted
-calib predictions reach --target-accuracy.
+The "not sure" rule: answer --reject-label instead of a class if the Shannon entropy of
+the probabilities, H = -sum(p log p) / log(n_classes) (0 = all the mass on one class,
+1 = uniform), is above `entropy_threshold`. The threshold is chosen on calib: the
+one that answers the most messages while the answered ones reach --target-accuracy.
 
 Output  (model/classifier.joblib), a dict:
     model        fitted LogisticRegression
     classes      class names in the order of predict_proba
     temperature  divide the logits by it before the softmax
-    threshold    below this top probability -> reject_label
+    entropy_threshold   normalised entropy above this -> reject_label
     reject_label label to return when not sure
     embedder, prefix   how to embed a text before calling the model
 
 Use it:
     b = joblib.load("model/classifier.joblib")
     x = SentenceTransformer(b["embedder"]).encode([b["prefix"] + text], normalize_embeddings=True)
-    p = softmax(b["model"].decision_function(x) / b["temperature"])
+    p = softmax(b["model"].decision_function(x) / b["temperature"], axis=1)[0]
+    h = -(p * np.log(np.clip(p, 1e-12, 1))).sum() / np.log(len(p))
+    label = b["classes"][p.argmax()] if h <= b["entropy_threshold"] else b["reject_label"]
 
 Run from the repo root:  python scripts/train_classifier.py
 """
@@ -49,28 +52,34 @@ def fit_temperature(logits: np.ndarray, y_idx: np.ndarray) -> float:
     return float(minimize_scalar(nll, bounds=(0.05, 20), method="bounded").x)
 
 
-def choose_threshold(proba: np.ndarray, y_idx: np.ndarray, target: float) -> float:
-    """Lowest threshold whose accepted predictions reach the target accuracy (else the best accuracy)."""
-    top, pred = proba.max(1), proba.argmax(1)
-    best_t, best_acc = 1.0, -1.0
-    for t in np.unique(np.concatenate([[0.0], np.round(top, 4)])):
-        keep = top >= t
-        if keep.sum() < 0.3 * len(top):  # do not reject most of the data
-            break
-        acc = float((pred[keep] == y_idx[keep]).mean())
-        if acc >= target:
-            return float(t)
-        if acc > best_acc:
-            best_t, best_acc = float(t), acc
-    return best_t
+def entropy_norm(proba: np.ndarray) -> np.ndarray:
+    """Shannon entropy of each row divided by log(n_classes): 0 = certain, 1 = uniform."""
+    return -(proba * np.log(np.clip(proba, 1e-12, 1))).sum(1) / np.log(proba.shape[1])
 
 
-def report(name: str, proba, y_idx, classes, threshold, reject_label) -> None:
-    top, pred = proba.max(1), proba.argmax(1)
-    accepted = top >= threshold
+def choose_entropy_threshold(proba: np.ndarray, y_idx: np.ndarray, target: float) -> float:
+    """Largest entropy threshold (= most messages answered) whose answered messages reach the
+    target accuracy; if none does, the one with the best accuracy."""
+    pred, h = proba.argmax(1), entropy_norm(proba)
+    best_ok, best_any = None, None  # (coverage, ht) / (accuracy, coverage, ht)
+    for ht in np.concatenate([np.unique(np.round(h, 4)), [1.0]]):
+        keep = h <= ht
+        if keep.sum() < 0.3 * len(h):  # do not reject most of the data
+            continue
+        acc, cov = float((pred[keep] == y_idx[keep]).mean()), float(keep.mean())
+        if acc >= target and (best_ok is None or cov > best_ok[0]):
+            best_ok = (cov, float(ht))
+        if best_any is None or (acc, cov) > best_any[:2]:
+            best_any = (acc, cov, float(ht))
+    return best_ok[1] if best_ok else best_any[2]
+
+
+def report(name: str, proba, y_idx, classes, entropy_threshold, reject_label) -> None:
+    pred = proba.argmax(1)
+    accepted = entropy_norm(proba) <= entropy_threshold
     print(f"\n== {name} ({len(y_idx)} texts) ==")
     print(f"accuracy without rejection : {(pred == y_idx).mean():.3f}")
-    print(f"answered (>= {threshold:.3f})      : {accepted.mean():.1%}, accuracy on them {(pred[accepted] == y_idx[accepted]).mean():.3f}")
+    print(f"answered (entropy <= {entropy_threshold:.3f}): {accepted.mean():.1%}, accuracy on them {(pred[accepted] == y_idx[accepted]).mean():.3f}")
     print(f"rejected as '{reject_label}'     : {(~accepted).mean():.1%}")
     print(classification_report(y_idx, pred, labels=range(len(classes)), target_names=classes, digits=3, zero_division=0))
     print("confusion matrix (rows = true, columns = predicted):\n", confusion_matrix(y_idx, pred, labels=range(len(classes))))
@@ -104,14 +113,14 @@ def main() -> None:
 
     temperature = fit_temperature(model.decision_function(Xca), yca_i)
     proba = lambda X: softmax(model.decision_function(X) / temperature, axis=1)
-    threshold = choose_threshold(proba(Xca), yca_i, args.target_accuracy)
-    print(f"temperature = {temperature:.3f}, threshold = {threshold:.3f}")
+    entropy_threshold = choose_entropy_threshold(proba(Xca), yca_i, args.target_accuracy)
+    print(f"temperature = {temperature:.3f}, entropy threshold = {entropy_threshold:.3f}")
 
-    report("calib (used to set the threshold)", proba(Xca), yca_i, classes, threshold, args.reject_label)
-    report("TEST (final)", proba(Xte), yte_i, classes, threshold, args.reject_label)
+    report("calib (used to set the threshold)", proba(Xca), yca_i, classes, entropy_threshold, args.reject_label)
+    report("TEST (final)", proba(Xte), yte_i, classes, entropy_threshold, args.reject_label)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"model": model, "classes": classes, "temperature": temperature, "threshold": threshold,
+    joblib.dump({"model": model, "classes": classes, "temperature": temperature, "entropy_threshold": entropy_threshold,
                  "reject_label": args.reject_label, "embedder": meta["model"], "prefix": meta["prefix"]}, args.out)
     print(f"\nSaved to {args.out}")
 
