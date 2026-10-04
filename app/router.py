@@ -42,7 +42,7 @@ def handle_incoming(phone, text):
         return []
 
     ts = clock.now(phone)
-    row, is_new = db.user(phone)
+    row, _ = db.user(phone)
     message_id = db.record(phone, "in", text, ts)
 
     sent = []
@@ -69,8 +69,11 @@ def handle_incoming(phone, text):
     if row["stopped"]:
         return []  # recorded for the trace, never answered
 
-    if is_new:
+    # Explicit flag, not "the row did not exist": /api/demo/clock creates the
+    # row before Noor has typed anything, and that must not eat her welcome.
+    if not row["welcomed"]:
         say("welcome")
+        db.set_user(phone, welcomed=1)
 
     if kw == "PRICE":
         say(content.prices_text(row["lang"]), literal=True)  # no AI on this path

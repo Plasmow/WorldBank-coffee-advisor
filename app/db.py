@@ -21,6 +21,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
   phone        TEXT PRIMARY KEY,
   stopped      INTEGER NOT NULL DEFAULT 0,
+  welcomed     INTEGER NOT NULL DEFAULT 0,
   lang         TEXT    NOT NULL DEFAULT 'en',
   pending_kind TEXT,
   pending_text TEXT,
@@ -78,6 +79,10 @@ def _migrate(c):
             c.execute(f"ALTER TABLE messages ADD COLUMN {col} {typ}")
         except sqlite3.OperationalError:
             pass  # already there
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN welcomed INTEGER NOT NULL DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
 
 
 def init():

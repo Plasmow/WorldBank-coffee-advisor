@@ -19,7 +19,8 @@ LABEL_TEMPLATE = {
 
 HINTS = {
     "leaf_rust": ("rust", "orange", "yellow spot", "yellow powder", "powder", "underside"),
-    "phoma": ("phoma", "black spot", "dark spot", "brown lesion", "dieback", "necrosis", "lesion"),
+    "phoma": ("phoma", "black spot", "dark spot", "brown spot", "brown lesion",
+              "dieback", "necrosis", "lesion"),
     "healthy": ("healthy", "no problem", "looks good", "looks fine", "all good"),
 }
 

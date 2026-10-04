@@ -268,3 +268,17 @@ def test_agent_keyword_never_reaches_the_ai(client, monkeypatch):
 def test_agent_inside_a_sentence_is_a_symptom_not_the_keyword(client):
     r = send(client, NOOR, "my agent said the leaves have orange powder")
     assert any("rust" in m.lower() for m in r["replies"])
+
+
+def test_welcome_survives_the_page_setting_the_clock_first(client):
+    # The demo page announces its slot before Noor types anything, which
+    # creates the row. Existing-row must not mean already-welcomed.
+    client.post("/api/demo/clock", json={"phone": NOOR, "day": 0, "slot": "evening"})
+    r = send(client, NOOR, RUST)
+    assert any("Coffee Advisor" in m for m in r["replies"])
+
+
+def test_noor_is_welcomed_only_once(client):
+    send(client, NOOR, RUST)
+    again = send(client, NOOR, "PRICE")
+    assert not any("Free crop advice" in m for m in again["replies"])

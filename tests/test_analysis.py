@@ -81,3 +81,26 @@ def test_the_unknown_template_is_never_proposed():
 def test_the_contract_keys_are_all_present():
     r = analyze("orange powder under the leaves")
     assert set(r) >= {"lang", "text_en", "label", "proba", "llm_label", "decision", "template_id"}
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        # the four quick-reply chips on the demo page, verbatim
+        "The leaves on the upper trees have orange powder underneath",
+        "Dark brown spots on the leaves and they dry and fall after the cold nights",
+        "Something is wrong with my coffee trees",
+        "The berries have small holes",
+    ],
+)
+def test_every_demo_chip_reaches_a_sensible_decision(message):
+    r = analyze(message)
+    assert r["decision"] in ("answer", "clarify", "escalate")
+    assert r["template_id"] != "Unknown"
+
+
+def test_brown_spots_read_as_phoma():
+    # The demo page offers this exact wording; it must not fall through to a
+    # clarifying question the scenario never answers.
+    r = analyze("Dark brown spots on the leaves and they dry and fall after the cold nights")
+    assert (r["decision"], r["label"]) == ("answer", "phoma")
