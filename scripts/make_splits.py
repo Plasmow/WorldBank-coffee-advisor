@@ -13,6 +13,14 @@ Why by group: copies of one photo (and messages of one topic) look alike. If the
 sit on both sides of the split, the test score is inflated. Each class is split
 separately (stratified), so every class has train, calib and test data.
 
+Photos are split by FILE NUMBER, not by hash group: the augmented copies of one
+original photo have close numbers (coffee dataset/phoma/2300_276.jpg, 2300_288.jpg,
+...), and the near-duplicate hash misses copies that were zoomed / cropped / rotated.
+So the numbers of each class are cut into blocks of --block consecutive numbers, each
+block goes to one split, and images within --gap numbers of a block that belongs to
+another split are dropped. Two images in different splits are then at least
+--gap numbers apart. Other messages are still split by topic group.
+
     train : fit the classifier
     calib : calibrate the probabilities and choose the "not sure" threshold
     test  : final numbers only. Never tune anything on it.
@@ -32,6 +40,21 @@ from leafdesc_common import FLAG_RE
 SYN = Path("data/synthetic")
 SPLIT_NAMES = ("train", "calib", "test")
 PRIORITY = ("test", "calib", "train")  # when a text is duplicated across splits, keep it in the first of these
+
+
+NUM_RE = re.compile(r"_(\d+)\.[A-Za-z0-9]+$")
+
+
+def image_number(source_id: str) -> int | None:
+    """2300_276.jpg -> 276 (the part after the class offset), None if there is no number."""
+    m = NUM_RE.search(source_id)
+    return int(m.group(1)) if m else None
+
+
+def split_key(r: dict, block: int) -> str:
+    """Unit that is moved as a whole: a block of consecutive photo numbers, else the group."""
+    n = image_number(r["source_id"]) if r["kind"] == "photo" else None
+    return r["group"] if n is None else f"{r['label']}-blk{n // block:04d}"
 
 
 def norm(s: str) -> str:
@@ -112,6 +135,10 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=SYN / "dataset.jsonl")
     ap.add_argument("--ratios", type=float, nargs=3, default=(0.70, 0.15, 0.15), metavar=("TRAIN", "CALIB", "TEST"))
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--block", type=int, default=150,
+                    help="photos: numbers n//BLOCK form one block that goes to a single split")
+    ap.add_argument("--gap", type=int, default=30,
+                    help="photos: drop images within GAP numbers of a neighbouring block of another split")
     ap.add_argument("--keep-flagged", action="store_true", help="keep photo texts containing 'rust', disease names, ...")
     ap.add_argument("--keep-inconsistent", action="store_true",
                     help="keep photo texts whose label_consistency is 'no' or image_quality is 'poor'")
@@ -148,7 +175,8 @@ def main() -> None:
             raise SystemExit(f"Group {r['group']} appears under two labels: fix the group ids")
     weights: dict[str, Counter] = defaultdict(Counter)
     for r in rows:
-        weights[r["label"]][r["group"]] += 1
+        r["unit"] = split_key(r, args.block)
+        weights[r["label"]][r["unit"]] += 1
 
     existing = {}
     if args.splits.exists() and not args.reset:
@@ -158,7 +186,26 @@ def main() -> None:
         print("--reset: ignoring any frozen assignment (any model evaluated before is no longer comparable)")
     assignment = assign(weights, existing, ratios, args.seed)
     for r in rows:
-        r["split"] = assignment[r["group"]]
+        r["split"] = assignment[r["unit"]]
+
+    # Photos: drop images too close (in number) to a block of another split.
+    if args.gap > 0:
+        before = len(rows)
+        kept = []
+        for r in rows:
+            n = image_number(r["source_id"]) if r["kind"] == "photo" else None
+            if n is not None:
+                b, pos = divmod(n, args.block)
+                for nb, near in ((b - 1, pos < args.gap), (b + 1, pos >= args.block - args.gap)):
+                    other = assignment.get(f"{r['label']}-blk{nb:04d}")
+                    if near and other is not None and other != r["split"]:
+                        break
+                else:
+                    kept.append(r)
+                continue
+            kept.append(r)
+        rows = kept
+        drops[f"photo within {args.gap} numbers of a block of another split"] += before - len(rows)
 
     # Duplicate texts across / inside splits: keep one copy, in the most protected split.
     before = len(rows)
@@ -171,13 +218,17 @@ def main() -> None:
     rows = kept
     drops["duplicate text (kept once)"] += before - len(rows)
 
-    # Safety check: no group on two sides.
+    # Safety check: no topic group on two sides. Photo hash groups may straddle if
+    # several images of one group were described (--all): report, the numbers rule.
     sides = defaultdict(set)
     for r in rows:
         sides[r["group"]].add(r["split"])
-    assert all(len(s) == 1 for s in sides.values()), "a group ended up in two splits"
+    straddling = {g for g, sp in sides.items() if len(sp) > 1}
+    assert not any(r["kind"] != "photo" and r["group"] in straddling for r in rows), "a group ended up in two splits"
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    for r in rows:
+        r.pop("unit", None)
     rows.sort(key=lambda r: (r["split"], r["label"], r["group"], r["source_id"], r["text"]))
     with args.out.open("w", encoding="utf-8") as f:
         for r in rows:
@@ -208,6 +259,9 @@ def main() -> None:
         for reason, n in drops.most_common():
             if n:
                 print(f"  {n:5d}  {reason}")
+    if straddling:
+        warnings.append(f"{len(straddling)} photo hash groups have images in several splits "
+                        "(far apart in number): check them with the contact sheet")
     if warnings:
         print("\nWARNINGS:")
         for w in warnings:
