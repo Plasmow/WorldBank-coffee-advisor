@@ -20,14 +20,13 @@ Rules:
 from ai import translate
 from ai.classifier import THRESHOLD, classify
 from ai.lang import detect_lang
-from ai.llm import llm_predict
+from ai.llm import FALLBACK_QUESTION, llm_predict, llm_question
 
 ADVICE_TEMPLATES = {
     "leaf_rust": "adv_leaf_rust",
     "phoma": "adv_phoma",
     "healthy": "adv_healthy",
 }
-CLARIFY_TEMPLATE = "clarify"
 ESCALATE_TEMPLATE = "unsure"
 
 
@@ -78,11 +77,14 @@ def analyze(text: str, clarify_answer: str | None = None) -> dict:
         reason = "low_confidence" if not confident else "disagree"
         decision = "escalate" if clarify_answer else "clarify"
 
-    template_id = {
-        "answer": ADVICE_TEMPLATES.get(label),
-        "clarify": llm.get("question") or CLARIFY_TEMPLATE,
-        "escalate": ESCALATE_TEMPLATE,
-    }[decision]
+    if decision == "clarify":
+        # Only now: picking the question is a second LLM call (a few seconds),
+        # wasted on messages that get advice or go to the agent.
+        # LLM down (llm_label None): do not wait out a second timeout.
+        template_id = (llm_question(text_en, f"classifier {label} {proba:.0%}, LLM {llm_label}")
+                       if llm_label else FALLBACK_QUESTION)
+    else:
+        template_id = ADVICE_TEMPLATES.get(label) if decision == "answer" else ESCALATE_TEMPLATE
 
     return {
         "lang": lang,

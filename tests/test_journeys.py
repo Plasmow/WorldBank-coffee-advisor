@@ -50,13 +50,13 @@ def test_direct_advice(client):
 # 2. question puis conseil
 def test_clarify_then_advice(client):
     first = send(client, NOOR, "my coffee plants look bad")
-    assert any("are the marks" in m for m in first["replies"])
+    assert any("tell me more" in m for m in first["replies"])
 
     second = send(client, NOOR, "orange powder on the leaves")
     assert any("rust" in m.lower() for m in second["replies"])
 
     # exactly one clarifying question in the whole conversation
-    assert sum("are the marks" in m for m in outbound(second)) == 1
+    assert sum("tell me more" in m for m in outbound(second)) == 1
 
 
 # 3. transmission a l'agent

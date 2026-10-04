@@ -16,7 +16,7 @@ def chain(monkeypatch):
     """ai.analyze with a scripted classifier, LLM and translator."""
     import ai.analyze as an
 
-    script = {"clf": ("leaf_rust", 0.95), "llm": "leaf_rust", "question": "clarify_colour"}
+    script = {"clf": ("leaf_rust", 0.95), "llm": "leaf_rust", "question": "ask_leaf_look", "asked": []}
     translated = []
 
     def fake_classify(text_en):
@@ -24,8 +24,12 @@ def chain(monkeypatch):
 
     def fake_llm(text_en):
         if script["llm"] == "down":
-            return {"label": None, "sure": False, "question": "clarify", "reason": "llm_error"}
-        return {"label": script["llm"], "sure": True, "question": script["question"], "reason": "x"}
+            return {"label": None, "sure": False, "reason": "llm_error"}
+        return {"label": script["llm"], "sure": True, "reason": "x"}
+
+    def fake_question(text_en, guesses=""):
+        script["asked"].append(text_en)
+        return script["question"]
 
     def fake_translate(text):
         translated.append(text)
@@ -33,6 +37,7 @@ def chain(monkeypatch):
 
     monkeypatch.setattr(an, "classify", fake_classify)
     monkeypatch.setattr(an, "llm_predict", fake_llm)
+    monkeypatch.setattr(an, "llm_question", fake_question)
     monkeypatch.setattr(an.translate, "lug_to_en", fake_translate)
     script["translated"] = translated
     return an, script
@@ -61,16 +66,16 @@ def test_luganda_is_translated_before_classifying(chain):
 
 def test_disagreement_asks_the_question_the_llm_chose(chain):
     an, s = chain
-    s["llm"], s["question"] = "phoma", "clarify_rust_phoma"
+    s["llm"], s["question"] = "phoma", "ask_powder_or_dark_patches"
     r = an.analyze("brown and orange marks on the leaves")
-    assert (r["decision"], r["template_id"], r["reason"]) == ("clarify", "clarify_rust_phoma", "disagree")
+    assert (r["decision"], r["template_id"], r["reason"]) == ("clarify", "ask_powder_or_dark_patches", "disagree")
 
 
 def test_low_confidence_asks_one_question(chain):
     an, s = chain
-    s["clf"], s["question"] = ("phoma", 0.55), "clarify_where"
+    s["clf"], s["question"] = ("phoma", 0.55), "ask_plant_part"
     r = an.analyze("my coffee looks bad")
-    assert (r["decision"], r["template_id"], r["reason"]) == ("clarify", "clarify_where", "low_confidence")
+    assert (r["decision"], r["template_id"], r["reason"]) == ("clarify", "ask_plant_part", "low_confidence")
 
 
 def test_still_unsure_after_the_question_escalates(chain):
@@ -113,11 +118,10 @@ def test_vague_other_gets_a_question_when_the_llm_is_unsure(chain, monkeypatch):
     # A badly translated Luganda message often looks like "other" to the
     # classifier; one question costs little, a needless agent call costs more.
     an, s = chain
-    s["clf"] = ("other", 0.97)
-    monkeypatch.setattr(an, "llm_predict", lambda t: {
-        "label": "other", "sure": False, "question": "clarify_where", "reason": "vague"})
+    s["clf"], s["question"] = ("other", 0.97), "ask_plant_part"
+    monkeypatch.setattr(an, "llm_predict", lambda t: {"label": "other", "sure": False, "reason": "vague"})
     r = an.analyze("Emmwanyi zange zirabika bubi")
-    assert (r["decision"], r["template_id"]) == ("clarify", "clarify_where")
+    assert (r["decision"], r["template_id"]) == ("clarify", "ask_plant_part")
 
 
 def test_confident_other_goes_straight_to_the_agent(chain):
@@ -134,7 +138,7 @@ def test_other_is_never_answered_whatever_the_llm_says(chain, monkeypatch):
             for sure in (True, False):
                 s["clf"] = ("other", proba)
                 monkeypatch.setattr(an, "llm_predict", lambda t, l=llm_label, su=sure: {
-                    "label": l, "sure": su, "question": "clarify", "reason": ""})
+                    "label": l, "sure": su, "reason": ""})
                 for answer in (None, "more details"):
                     r = an.analyze("hello", clarify_answer=answer)
                     assert r["decision"] != "answer", (proba, llm_label, sure, answer)
@@ -190,9 +194,36 @@ def test_llm_off_schema_answer_is_treated_as_unavailable(monkeypatch):
     from ai import llm
 
     monkeypatch.setenv("USE_LLM", "1")
-    monkeypatch.setattr(llm, "_ask", lambda t: '{"label": "coffee_wilt", "question": "nope"}')
-    r = llm.llm_predict("something")
-    assert r["label"] is None and r["question"] == "clarify"
+    monkeypatch.setattr(llm, "_ask", lambda t: '{"label": "coffee_wilt"}')
+    assert llm.llm_predict("something")["label"] is None
+
+
+def test_llm_off_schema_question_falls_back_to_tell_me_more(monkeypatch):
+    from ai import llm
+
+    monkeypatch.setenv("USE_LLM", "1")
+    monkeypatch.setattr(llm, "_chat", lambda *a: '{"question": "ask_about_the_weather"}')
+    assert llm.llm_question("something") == "clarify"
+    monkeypatch.setattr(llm, "_chat", lambda *a: (_ for _ in ()).throw(TimeoutError()))
+    assert llm.llm_question("something") == "clarify"
+
+
+def test_the_question_is_only_chosen_when_we_actually_ask(chain):
+    # Choosing it is a second LLM call: seconds wasted on a message that gets advice.
+    an, s = chain
+    assert an.analyze("orange powder under the leaves")["decision"] == "answer"
+    assert s["asked"] == []
+    s["clf"] = ("phoma", 0.5)
+    assert an.analyze("brown marks")["decision"] == "clarify"
+    assert s["asked"] == ["brown marks"]
+
+
+def test_llm_down_skips_the_question_call_and_says_tell_me_more(chain):
+    an, s = chain
+    s["llm"], s["clf"] = "down", ("phoma", 0.5)
+    r = an.analyze("brown marks")
+    assert (r["decision"], r["template_id"]) == ("clarify", "clarify")
+    assert s["asked"] == []  # no second timeout to wait out
 
 
 def test_translate_exposes_both_names_the_team_uses():
@@ -237,3 +268,19 @@ def test_language_detection_keeps_the_default_when_it_cannot_tell():
 
     assert detect_lang("zzzz", default="lg") == "lg"
     assert detect_lang("123", default="en") == "en"
+
+
+def test_the_llm_sees_the_exact_wording_of_every_question_it_can_pick():
+    # It used to pick "clarify" without knowing that meant asking where the
+    # marks are; whatever it picks, it must have read what Noor will receive.
+    import json
+    import pathlib
+
+    from ai.llm import QUESTION_PROMPT, QUESTION_SCHEMA, QUESTIONS, SYSTEM_PROMPT
+
+    templates = json.loads((pathlib.Path(__file__).parent.parent / "data" / "templates.json")
+                           .read_text(encoding="utf-8"))
+    assert QUESTION_SCHEMA["properties"]["question"]["enum"] == QUESTIONS
+    for qid in QUESTIONS:
+        assert f'{qid}: asks "{templates[qid]["en"]}"' in QUESTION_PROMPT
+        assert qid not in SYSTEM_PROMPT  # the classification prompt stays short

@@ -59,7 +59,7 @@ def test_entry_2_gibberish_ends_with_the_question(client, agent_sms):
     # completes the diagnosis.
     body = ussd(client, "2*zzzz qwerty")
     assert body.startswith("END ")
-    assert "are the marks" in body
+    assert "tell me more" in body
     assert not agent_sms
 
 
