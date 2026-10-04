@@ -282,3 +282,27 @@ def test_noor_is_welcomed_only_once(client):
     send(client, NOOR, RUST)
     again = send(client, NOOR, "PRICE")
     assert not any("Free crop advice" in m for m in again["replies"])
+
+
+def test_the_bare_url_leads_somewhere(client):
+    # A jury opening https://<app>/ must not meet a 404.
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code in (302, 307)
+    assert r.headers["location"] == "/demo"
+
+
+def test_head_on_the_bare_url_is_not_an_error(client):
+    # Render probes the port with HEAD /, and FastAPI does not add HEAD to a
+    # @app.get route on its own.
+    r = client.head("/", follow_redirects=False)
+    assert r.status_code in (302, 307)
+
+
+def test_the_bare_url_followed_lands_on_the_demo(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Coffee Advisor" in r.text
+
+
+def test_the_favicon_is_not_a_404(client):
+    assert client.get("/favicon.ico").status_code == 200

@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 
 from app import analysis, db, scheduler
 from app.demo_routes import api
@@ -121,6 +121,27 @@ def _handle(frm, text):
         handle_incoming(frm, text)
     except Exception:
         log.exception("handle_incoming failed for %s", frm)
+
+
+# A coffee cherry on a branch, so the browser tab is not a blank page icon.
+FAVICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+    '<circle cx="16" cy="19" r="9" fill="#B0362A"/>'
+    '<path d="M16 10C16 5 20 2 25 2c0 5-4 8-9 8z" fill="#2D5A39"/>'
+    '</svg>'
+)
+
+
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+def root():
+    """The bare URL is what a jury pastes, and what Render probes with HEAD.
+    Send both to the demo rather than a 404 or a 405."""
+    return RedirectResponse("/demo")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(FAVICON, media_type="image/svg+xml")
 
 
 @app.get("/demo", include_in_schema=False)
