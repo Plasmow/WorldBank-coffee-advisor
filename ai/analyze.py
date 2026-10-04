@@ -14,20 +14,11 @@ Règles :
   est sûr, sinon d'abord la question de précision (message flou) ;
 - sinon une seule question de précision, puis transmission à l'agent.
 """
-import json
 import re
-from functools import lru_cache
-from pathlib import Path
 
+from ai.classifier import THRESHOLD, classify
 from ai.llm import llm_predict
 from ai.translate import lug_to_en
-
-ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = ROOT / "model" / "classifier.joblib"
-LABELS_PATH = ROOT / "model" / "labels.json"
-
-DEFAULT_LABELS = ["leaf_rust", "phoma", "healthy", "other"]
-DEFAULT_THRESHOLD = 0.8
 
 # label -> clé de data/templates.json
 ADVICE_TEMPLATES = {
@@ -58,61 +49,6 @@ def detect_lang(text: str) -> str:
     return "en" if en_ratio >= 0.3 else "lg"
 
 
-# ---------- classifieur (contrat P1 -> P3) ----------
-
-@lru_cache(maxsize=1)
-def load_labels() -> tuple[list[str], float]:
-    try:
-        meta = json.loads(LABELS_PATH.read_text(encoding="utf-8"))
-        return meta["labels"], float(meta.get("threshold", DEFAULT_THRESHOLD))
-    except (OSError, ValueError, KeyError):
-        return DEFAULT_LABELS, DEFAULT_THRESHOLD
-
-
-@lru_cache(maxsize=1)
-def load_classifier():
-    """model/classifier.joblib expose predict_proba(list[str]). None s'il n'est pas encore livré."""
-    import joblib
-
-    try:
-        return joblib.load(MODEL_PATH)
-    except Exception:  # absent, vide ou illisible -> classifieur factice
-        return None
-
-
-STUB_KEYWORDS = {
-    "leaf_rust": ["orange", "powder", "dust", "rust"],
-    "phoma": ["black", "dark brown", "tip", "dieback", "dying back"],
-    "healthy": ["green", "shiny", "glossy", "fine", "good"],
-}
-
-
-def _stub_classify(text_en: str) -> tuple[str, float]:
-    """Version factice tant que le vrai modèle de P1 n'est pas livré."""
-    t = text_en.lower()
-    scores = {label: sum(k in t for k in kws) for label, kws in STUB_KEYWORDS.items()}
-    best = max(scores, key=scores.get)
-    if scores[best] == 0:
-        return "other", 0.5
-    return best, 0.85 if scores[best] >= 2 else 0.6
-
-
-def classify(text_en: str) -> tuple[str, float]:
-    model = load_classifier()
-    if model is None:
-        return _stub_classify(text_en)
-    labels, _ = load_labels()
-    probas = model.predict_proba([text_en])[0]
-    best = int(probas.argmax())
-    return labels[best], float(probas[best])
-
-
-def preload() -> None:
-    """À appeler au démarrage du serveur."""
-    load_labels()
-    load_classifier()
-
-
 # ---------- décision ----------
 
 def _translate(text: str, lang: str) -> str:
@@ -135,8 +71,7 @@ def analyze(text: str, clarify_answer: str | None = None) -> dict:
     llm = llm_predict(text_en)
     llm_label = llm["label"]
 
-    _, threshold = load_labels()
-    confident = proba >= threshold
+    confident = proba >= THRESHOLD
 
     if label == "other" and (confident or clarify_answer):
         decision, reason = "escalate", "other"
