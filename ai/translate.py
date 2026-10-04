@@ -22,10 +22,14 @@ def get_tokenizer(src_lang: str):
 
 
 def preload() -> None:
-    """À appeler au démarrage du serveur : charge le modèle et les tokenizers."""
+    """À appeler au démarrage du serveur : charge le modèle et les tokenizers.
+
+    Une traduction factice absorbe la lenteur du premier appel (~10 s).
+    """
     get_translator()
     get_tokenizer(LUG)
     get_tokenizer(ENG)
+    lug_to_en("Ebikoola bya kawa")
 
 
 def _translate(text: str, src_lang: str, tgt_lang: str) -> str:
