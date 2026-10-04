@@ -123,7 +123,7 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
 .howto b{color:var(--ink)}
 .howto em{font-style:normal;font-weight:600;color:var(--ink)}
 @media (max-width:980px){.howto{margin:0 24px 18px}}
-/* English subtitles for the judges, next to the phone */
+/* The conversation in English, and the English -> Luganda composer */
 .tr-card{align-self:stretch;max-height:640px;grid-template-rows:auto 1fr auto}
 .tr-thread{overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:120px}
 .tr-empty{margin:auto;text-align:center;color:var(--muted);font-size:12px}
@@ -135,6 +135,11 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
 .tr-en{font-size:13px}
 .tr-en.pending{color:var(--muted);font-style:italic}
 .tr-foot{font-size:11px;color:var(--muted)}
+.tr-foot.err{color:var(--cherry)}
+.tr-compose{display:flex;gap:8px}
+.tr-compose input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);
+  border-radius:9px;font:inherit;font-size:13px;background:var(--screen);color:var(--ink)}
+.tr-compose input:disabled,.tr-compose button:disabled{opacity:.5;cursor:not-allowed}
 .footnote{max-width:1200px;margin:0 auto;padding:0 24px 28px;color:var(--muted);font-size:12px}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -158,7 +163,7 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
   </div>
 </header>
 
-<div class="howto" role="note"><b>How to try it</b><span>1. Press <em>Play scenario</em> to watch a full week in about a minute.</span><span>2. Or pick <em>Evening</em> and describe a problem on the coffee leaves.</span><span>3. Then move three days ahead and pick <em>Evening</em> again: the automatic follow-up arrives.</span></div>
+<div class="howto" role="note"><b>How to try it</b><span>1. Press <em>Play scenario</em> to watch a full week in about a minute.</span><span>2. Or pick <em>Evening</em> and write, in English, what Noor sees on her coffee.</span><span>3. Then move three days ahead and pick <em>Evening</em> again: the automatic follow-up arrives.</span></div>
 <main>
   <!-- Noor's day -->
   <section class="card" aria-labelledby="dayTitle">
@@ -237,14 +242,19 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
     <div class="daynav"><button id="dayPrev" aria-label="Previous day">‹</button><span id="dayLabel">Day 1 · Monday</span><button id="dayNext" aria-label="Next day">›</button></div>
   </section>
 
-  <!-- English subtitles for the judges -->
+  <!-- Write English, send Luganda -->
   <section class="card tr-card" aria-labelledby="trTitle">
     <div>
-      <div class="eyebrow">For the judges · live translation</div>
+      <div class="eyebrow">Live translation</div>
       <h2 id="trTitle">The conversation in English</h2>
     </div>
     <div class="tr-thread" id="trThread" aria-live="polite"></div>
-    <div class="tr-foot">For viewers only: Noor sees the phone, in Luganda. Our replies show their exact English; Noor's messages are translated by Google, or by our own Luganda model when Google is unavailable.</div>
+    <form class="tr-compose" id="trCompose">
+      <input id="trInput" type="text" autocomplete="off" maxlength="500"
+             placeholder="Write in English, Noor receives Luganda…">
+      <button class="btn primary" id="trSend" type="submit">Send</button>
+    </form>
+    <div class="tr-foot" id="trFoot">Your English is translated to Luganda before it reaches the server, so the advisor sees exactly what a farmer would send.</div>
   </section>
 
   <!-- Phone -->
@@ -274,18 +284,15 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
     </div>
     <div class="event" id="event" hidden></div>
     <div class="chips" id="chips">
-      <button class="chip" data-msg="The leaves on the upper trees have orange powder underneath">Orange powder under leaves</button>
-      <button class="chip" data-msg="Dark brown spots on the leaves and they dry and fall after the cold nights">Brown spots, leaves dry</button>
-      <button class="chip" data-msg="Something is wrong with my coffee trees">Something is wrong</button>
-      <button class="chip" data-msg="The berries have small holes">Holes in berries</button>
+      <button class="chip" data-msg="Butto w&#39;emicungwa wansi w&#39;ebikoola">Orange powder under leaves</button>
+      <button class="chip" data-msg="Amabala ga kitaka, ebikoola bikalu">Brown spots, leaves dry</button>
+      <button class="chip" data-msg="Waliwo ekikyamu">Something is wrong</button>
+      <button class="chip" data-msg="Ebinnya mu butunda">Holes in berries</button>
     </div>
     <div class="chips" id="chipsKw">
       <button class="chip kw" data-msg="PRICE">PRICE</button>
       <button class="chip kw" data-msg="AGENT">AGENT</button>
       <button class="chip kw" data-msg="HELP">HELP</button>
-      <button class="chip kw" data-msg="1">1</button>
-      <button class="chip kw" data-msg="2">2</button>
-      <button class="chip kw" data-msg="3">3</button>
     </div>
     <div class="hint" id="hint">Type on your keyboard or tap a message. Noor can write in Luganda or English.</div>
   </section>
@@ -424,6 +431,9 @@ function renderThread(){
   $('awayPill').textContent=n?`${n} new message${n>1?'s':''}`:'No new messages';
   $('awayPill').className='pill'+(n?'':' none');
   const off=away||!S.connected; $('msgInput').disabled=off; $('sendBtn').disabled=off;
+  $('trInput').disabled=off; $('trSend').disabled=off;
+  $('trInput').placeholder = away ? 'Noor is away from her phone' : 'Write in English, Noor receives Luganda…';
+  if(!off && !$('trFoot').classList.contains('err') && $('trFoot').textContent.startsWith('Translating')) setFoot(FOOT);
   $('msgInput').placeholder=away?'Noor is away from her phone':'Write message…';
   document.querySelectorAll('.chips .chip').forEach(c=>c.disabled=off||S.playing);
   $('phoneClock').textContent=clockStr();
@@ -503,6 +513,34 @@ function renderEnglish(){
   }).join('');
   th.scrollTop=th.scrollHeight;
 }
+/* Write English, send Luganda. Whoever drives the demo does not speak
+   Luganda, but the chain must receive what a farmer would really send, and do
+   its own translating. The English never reaches the server as a message. */
+const FOOT = 'Your English is translated to Luganda before it reaches the server, so the advisor sees exactly what a farmer would send.';
+function setFoot(text, bad){ const f=$('trFoot'); f.textContent=text; f.classList.toggle('err', !!bad); }
+
+async function composeAndSend(english){
+  english = String(english || '').trim();
+  if(!english || $('trInput').disabled) return;
+  $('trSend').disabled = true;
+  setFoot('Translating to Luganda…');
+  try{
+    const r = await post('/api/demo/compose', {text: english});
+    if(!r.lg){
+      // Never quietly send the English: the whole point is a real Luganda SMS.
+      setFoot('Translation unavailable right now. Try again, or tap one of the ready-made messages.', true);
+      return;
+    }
+    $('trInput').value = '';
+    setFoot('Sent as: ' + r.lg);
+    await sendFromNoor(r.lg);
+  }catch(e){
+    setFoot('Could not reach the translator.', true);
+  }finally{
+    $('trSend').disabled = $('trInput').disabled;
+  }
+}
+
 async function refreshEnglish(){
   const key=CONFIG.phone+'|'+S.messages.map(m=>m.id).join(',');
   const missing=EN.rows.some(m=>m.en==null);
@@ -550,11 +588,11 @@ async function typeSend(text){
 }
 const SCRIPT=[
   async()=>{ await sleep(1200); },
-  async()=>{ await typeSend('The leaves on the upper trees have orange powder underneath'); await sleep(2200); },
+  async()=>{ await typeSend("Butto w'emicungwa wansi w'ebikoola"); await sleep(2200); },
   async()=>{ await setTime('day',1); await sleep(3000); },
   async()=>{ const n0=serviceCount(); await setTime('evening',3); await waitForReply(n0,15000); await sleep(2000); await typeSend('3'); await sleep(2500); },
-  async()=>{ await setTime('evening',4); await sleep(1000); await typeSend('Something is wrong with my coffee trees'); await sleep(1800); await typeSend('On the leaves, orange powder'); await sleep(2500); },
-  async()=>{ await typeSend('The berries have small holes'); await sleep(2500); },
+  async()=>{ await setTime('evening',4); await sleep(1000); await typeSend('Waliwo ekikyamu'); await sleep(1800); await typeSend("Obuwunga obwa kyenvu wansi w'ebikoola"); await sleep(2500); },
+  async()=>{ await typeSend('Ebinnya mu butunda'); await sleep(2500); },
   async()=>{ await setTime('morning',5); await sleep(1200); await typeSend('PRICE'); await sleep(2000); },
 ];
 async function play(){
@@ -615,6 +653,7 @@ $('dayPrev').addEventListener('click',()=>setTime(S.time,S.day-1));
 $('dayNext').addEventListener('click',()=>setTime(S.time,S.day+1));
 $('playBtn').addEventListener('click',play);
 $('liveToggle').addEventListener('change',e=>setLive(e.target.checked));
+$('trCompose').addEventListener('submit',e=>{e.preventDefault();composeAndSend($('trInput').value);});
 $('resetBtn').addEventListener('click',()=>{ if(!S.playing) reset(); });
 renderAll();
 renderEnglish();

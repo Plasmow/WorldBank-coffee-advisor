@@ -1,9 +1,10 @@
-"""English subtitles for the demo page, from Google Translate.
+"""Google Translate, for the demo page only.
 
-For the judges only: Noor never sees this, and nothing here feeds the AI chain
-(that runs on our own Opus-MT model, on our own server). With GOOGLE_TRANSLATE_API_KEY set this
-calls the Cloud Translation API v2; without it, the free endpoint Google's own
-web widgets use, which needs no key and is fine for a demo.
+Two jobs, both outside the AI chain, which runs on our own model: reading the
+conversation back in English, and turning what the operator types in English
+into the Luganda a farmer would actually send. With GOOGLE_TRANSLATE_API_KEY
+set this calls the Cloud Translation API v2; without it, the free endpoint
+Google's own web widgets use, which needs no key and is fine for a demo.
 """
 
 import logging
@@ -37,31 +38,47 @@ def to_english(texts):
     out = []
     for text in texts:
         text = (text or "")[:MAX_CHARS]
-        if text not in _cache:
-            result = _translate(text)
+        if (text, "en") not in _cache:
+            result = _translate(text, "en")
             if result[0] is None:
                 out.append(result)
                 continue
-            _cache[text] = result
-        out.append(_cache[text])
+            _cache[(text, "en")] = result
+        out.append(_cache[(text, "en")])
     return out
 
 
-def _translate(text):
+def to_luganda(text):
+    """-> (luganda or None, source lang or None), for the demo composer.
+
+    None means Google could not be reached. The caller must not fall back to
+    sending the English: the point is to feed the chain a real Luganda SMS.
+    """
+    text = (text or "")[:MAX_CHARS]
+    if (text, "lg") not in _cache:
+        result = _translate(text, "lg")
+        if result[0] is None:
+            return result
+        _cache[(text, "lg")] = result
+    return _cache[(text, "lg")]
+
+
+def _translate(text, target):
     if not text.strip() or not any(c.isalpha() for c in text):
         return text, None  # "3", "1": nothing to translate
     from ai.lang import detect_lang  # pure Python, no model
 
-    if detect_lang(text, default="lg") == "en":
-        # Already English: Google would only damage it (grade names like
-        # "Kiboko" come back as "Kick").
-        return text, "en"
+    source = detect_lang(text, default="lg")
+    if source == target:
+        # Already in the target language: Google would only damage it (grade
+        # names like "Kiboko" come back as "Kick").
+        return text, source
     global _blocked_until
     if time.monotonic() < _blocked_until:
         return None, None  # cooling down: the caller falls back, no request made
     try:
         key = os.environ.get("GOOGLE_TRANSLATE_API_KEY", "").strip()
-        return _cloud(text, key) if key else _free(text)
+        return _cloud(text, key, target) if key else _free(text, target)
     except httpx.HTTPStatusError as e:
         wait = COOLDOWN_S if e.response.status_code == 429 else ERROR_COOLDOWN_S
         try:
@@ -77,18 +94,18 @@ def _translate(text):
         return None, None
 
 
-def _cloud(text, key):
+def _cloud(text, key, target="en"):
     r = httpx.post(CLOUD_URL, params={"key": key},
-                   data={"q": text, "target": "en", "format": "text"}, timeout=5)
+                   data={"q": text, "target": target, "format": "text"}, timeout=5)
     r.raise_for_status()
     t = r.json()["data"]["translations"][0]
     return t["translatedText"], t.get("detectedSourceLanguage")
 
 
-def _free(text):
-    r = httpx.get(FREE_URL, params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t", "q": text},
+def _free(text, target="en"):
+    r = httpx.get(FREE_URL, params={"client": "gtx", "sl": "auto", "tl": target, "dt": "t", "q": text},
                   timeout=5)
     r.raise_for_status()
     data = r.json()
-    english = "".join(part[0] for part in data[0] if part and part[0])
-    return english, data[2] if len(data) > 2 else None
+    translated = "".join(part[0] for part in data[0] if part and part[0])
+    return translated, data[2] if len(data) > 2 else None

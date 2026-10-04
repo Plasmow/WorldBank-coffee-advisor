@@ -125,6 +125,25 @@ def english(phone: str):
     return {"messages": out}
 
 
+class Compose(BaseModel):
+    text: str
+
+
+@api.post("/compose")
+def compose(body: Compose):
+    """English in, Luganda out, for whoever is driving the demo.
+
+    They do not speak Luganda, but the backend must receive what a farmer
+    would really send -- the chain has to do its own translating. Nothing is
+    stored and nothing is sent: the page sends the Luganda itself.
+    """
+    text = (body.text or "").strip()
+    if not text or len(text) > 500:
+        raise HTTPException(400, "between 1 and 500 characters")
+    luganda, source = gtranslate.to_luganda(text)
+    return {"lg": luganda, "src": source, "via": "google" if luganda else None}
+
+
 @api.post("/clock")
 def set_clock(body: SetClock):
     phone = demo_phone(body.phone)
