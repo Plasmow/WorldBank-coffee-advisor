@@ -5,6 +5,10 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Set before app.main is imported anywhere: the developer's own .env must not
+# leak into the suite.
+os.environ["SKIP_DOTENV"] = "1"
+
 NOOR = "+256799000001"
 OTHER = "+256799000002"
 

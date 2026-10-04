@@ -17,6 +17,26 @@ from app.ussd import api as ussd_api
 
 log = logging.getLogger(__name__)
 LOOP_SECONDS = 60
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+def load_env(path=None):
+    """Read .env into the environment, for local work only.
+
+    override=False on purpose: Replit passes its Secrets as real environment
+    variables, and a .env left over on someone's laptop must never be able to
+    replace one. The file fills gaps, it does not win arguments.
+    """
+    from dotenv import load_dotenv  # already present, uvicorn[standard] pulls it
+
+    load_dotenv(path or ROOT / ".env", override=False)
+
+
+# Before anything reads os.environ -- the CORS origin below is read at import.
+# Skipped under pytest: a suite that reads whoever's .env happens to be on the
+# machine is a suite that passes here and fails everywhere else.
+if os.environ.get("SKIP_DOTENV") != "1":
+    load_env()
 
 
 async def _background():

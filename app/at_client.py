@@ -20,7 +20,7 @@ def send_sms(to, text):
     if os.environ.get("DEMO_MODE") == "1" or is_demo(to):
         return  # demo traffic never reaches the gateway
     try:
-        httpx.post(
+        response = httpx.post(
             AT_URL,
             data={
                 "username": os.environ.get("AT_USERNAME", "sandbox"),
@@ -36,3 +36,10 @@ def send_sms(to, text):
         )
     except Exception:  # a dead gateway must never 500 the webhook
         log.exception("africa's talking send failed")
+        return
+
+    # Without this a rejected key looks exactly like a delivered SMS.
+    if response.status_code >= 300:
+        log.error(
+            "africa's talking refused the send: %s %s", response.status_code, response.text[:300]
+        )
