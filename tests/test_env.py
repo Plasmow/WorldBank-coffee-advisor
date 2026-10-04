@@ -50,3 +50,87 @@ def test_a_rejected_sms_is_logged_loudly(monkeypatch, caplog):
 
     assert any("401" in r.getMessage() for r in caplog.records)
     assert any("Invalid API key" in r.getMessage() for r in caplog.records)
+
+
+class FakeResponse:
+    def __init__(self, status_code, text):
+        self.status_code, self.text = status_code, text
+
+    def json(self):
+        import json
+
+        return json.loads(self.text)
+
+
+SENT = '{"SMSMessageData":{"Message":"Sent to 1/1","Recipients":[{"messageId":"ATXid_1"}]}}'
+REFUSED = '{"SMSMessageData":{"Message":"InvalidSenderId","Recipients":[]}}'
+
+
+def _capture_post(monkeypatch):
+    """Intercepts the call to the gateway and hands back what was sent."""
+    import httpx
+
+    from app import at_client
+
+    seen = {}
+
+    def fake_post(url, data=None, headers=None, timeout=None):
+        seen.update(data or {})
+        return FakeResponse(201, SENT)
+
+    monkeypatch.delenv("DEMO_MODE", raising=False)
+    monkeypatch.setattr(httpx, "post", fake_post)
+    return at_client, seen
+
+
+def test_an_empty_shortcode_is_left_out_of_the_request(monkeypatch):
+    # The sandbox answers InvalidSenderId to an empty sender id, and accepts
+    # the message only when the field is absent altogether.
+    at_client, seen = _capture_post(monkeypatch)
+    monkeypatch.setenv("AT_SHORTCODE", "")
+
+    at_client.send_sms("+256700000099", "hello")
+
+    assert "from" not in seen
+
+
+def test_a_real_shortcode_is_sent(monkeypatch):
+    at_client, seen = _capture_post(monkeypatch)
+    monkeypatch.setenv("AT_SHORTCODE", "12345")
+
+    at_client.send_sms("+256700000099", "hello")
+
+    assert seen["from"] == "12345"
+
+
+def test_a_refusal_dressed_as_201_is_logged(monkeypatch, caplog):
+    """Africa's Talking answers 201 and puts the failure in the body."""
+    import logging
+
+    import httpx
+
+    from app import at_client
+
+    monkeypatch.delenv("DEMO_MODE", raising=False)
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: FakeResponse(201, REFUSED))
+
+    with caplog.at_level(logging.ERROR, logger="app.at_client"):
+        at_client.send_sms("+256700000099", "hello")
+
+    assert any("InvalidSenderId" in r.getMessage() for r in caplog.records)
+
+
+def test_a_delivered_message_is_not_logged_as_an_error(monkeypatch, caplog):
+    import logging
+
+    import httpx
+
+    from app import at_client
+
+    monkeypatch.delenv("DEMO_MODE", raising=False)
+    monkeypatch.setattr(httpx, "post", lambda *a, **k: FakeResponse(201, SENT))
+
+    with caplog.at_level(logging.ERROR, logger="app.at_client"):
+        at_client.send_sms("+256700000099", "hello")
+
+    assert not caplog.records
