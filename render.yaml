@@ -2,8 +2,9 @@ services:
   - type: web
     name: coffee-advisor
     runtime: python
-    # The full chain peaks at ~1.4 GB (NLLB int8 + e5-small + torch):
-    # the 512 MB plans cannot hold it. Standard = 2 GB.
+    # The Opus-MT translator is ~80 MB, small enough for any plan. What needs
+    # the room is the e5 classifier and its torch, so USE_REAL_AI=1 still
+    # wants more than the 512 MB free plan. Standard = 2 GB.
     plan: standard
     # Models are downloaded here, at build time, into the project folder that
     # Render ships to the runtime: a boot only loads them from disk.
@@ -15,8 +16,6 @@ services:
         value: "3.12.8"
       - key: HF_HOME
         value: /opt/render/project/src/.hf_cache
-      - key: NLLB_CT2_REPO
-        value: JustFrederik/nllb-200-distilled-600M-ct2-int8
       - key: USE_REAL_AI
         value: "1"
       # 0: messages to real numbers really go out through Africa's Talking.

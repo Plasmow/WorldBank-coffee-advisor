@@ -10,7 +10,7 @@ the command servers actually run.
 ```bash
 uv venv --python 3.12            # uv fetches 3.12 itself, no pyenv needed
 uv pip install -r requirements-ai.txt
-uv run python scripts/fetch_models.py      # NLLB int8 (~620 MB), tokenizer, e5-small
+uv run python scripts/fetch_models.py      # translator (~80 MB) + e5-small
 ollama pull qwen2.5:3b                     # optional: the LLM second opinion
 cp .env.example .env                       # then fill in AT_API_KEY and AGENT_PHONE
 uv run uvicorn app.main:app --reload
@@ -48,7 +48,7 @@ tests before any deploy that touches `ai/` or `model/`.
 ```
 SMS -> keyword? (PRICE/HELP/AGENT/STOP/START, 1/2/3) -> direct reply, no AI
     -> price question in free text?                   -> prices.json, no AI
-    -> Luganda? -> NLLB-200-600M (CTranslate2 int8) + farming glossary -> English
+    -> Luganda? -> Opus-MT lg->en fine-tune (CT2 int8) + glossary     -> English
     -> e5-small-v2 + calibrated logistic regression   -> label, proba
     -> qwen2.5:3b via Ollama (JSON schema, temp 0)    -> label, which question to ask
     -> answer   if proba >= 0.8 and both agree        -> advice template, follow-up at D+3
@@ -62,9 +62,17 @@ SMS -> keyword? (PRICE/HELP/AGENT/STOP/START, 1/2/3) -> direct reply, no AI
 - `other` is never answered. A price question, by keyword or in free text
   ("Emmwanyi zigula ssente mmeka leero?"), gets `prices.json` in a fixed
   wrapper and never reaches a model.
-- NLLB-600M is weak on farming Luganda ("obuwunga", powder, comes back as
-  "flour"). `ai/translate.py` appends the English of the farming words it
-  recognises, so the classifier still sees "powder, orange, underneath".
+- The translator is our own Opus-MT fine-tuned on SALT plus agricultural
+  SMS, converted to CTranslate2 int8: 81 MB on disk, 2.2 s to load, 105 ms a
+  message, chrF 65.0 on `data/synthetic/domain_pairs.jsonl`
+  (`python scripts/eval_translate.py`). It replaced NLLB-200-600M, which was
+  600 MB and rendered "my coffee is fine" as "my oil is good".
+- It only goes Luganda to English. Everything sent to Noor is written by hand
+  in `data/templates.json`; `en_to_lug` raises rather than invent a reply.
+- `ai/translate.py` appends the English of the farming words it recognises, so
+  the classifier still sees "powder, orange, underneath" even on a bad line.
+  A model that cannot be loaded returns the Luganda untouched: the glossary
+  carries the message and Noor gets a clarifying question, never silence.
 - The classifier head is read from `model/classifier.npz` (numpy, no sklearn
   at runtime). Re-export it after retraining: `python scripts/export_classifier.py`.
 - No Ollama reachable: the calibrated classifier answers alone (plan B of the
@@ -85,7 +93,7 @@ See `.env.example`.
 | `DEMO_MODE` | `1` keeps every SMS off the gateway. `0` on the deployed server |
 | `USE_REAL_AI` | `1` = the chain above, `0` = keyword stand-in |
 | `USE_LLM`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT` | the second opinion |
-| `NLLB_CT2_DIR`, `NLLB_CT2_REPO` | converted model folder / Hub repo it is fetched from |
+| `TRANSLATOR_DIR`, `TRANSLATOR_REPO` | translator folder / Hub repo it is fetched from (default `Adom4600/opus-lg-en-coffee-ct2`) |
 | `CLASSIFIER_THRESHOLD` | overrides `model/labels.json` |
 | `DB_PATH` | SQLite file, default `data/app.db` |
 | `FRONTEND_ORIGIN` | CORS origin of the Lovable page |
@@ -115,12 +123,11 @@ curl -s -XPOST localhost:8000/api/demo/send -H 'content-type: application/json' 
 the secrets it asks for (`AT_API_KEY`, `AGENT_PHONE`, optionally
 `OLLAMA_HOST`, `DEMO_LIVE_PHONE`).
 
-- **Plan: Standard (2 GB).** The chain peaks at ~1.4 GB resident; the
-  512 MB plans are killed while loading.
+- **Plan: Standard (2 GB).** The translator alone is small enough for the
+  free plan, but e5-small and its torch are not.
 - **Build** installs `requirements-ai.txt` (CPU-only torch) and runs
-  `scripts/fetch_models.py`, which downloads NLLB int8 from
-  `JustFrederik/nllb-200-distilled-600M-ct2-int8`, the tokenizer and e5-small
-  into the project folder. A boot then only reads from disk (~30 s), in a
+  `scripts/fetch_models.py`, which downloads the translator (~80 MB) and
+  e5-small into the project folder. A boot then only reads from disk (~30 s), in a
   background thread: `/health` answers at once and shows `"loading": true`
   until the models are in.
 - **The LLM** needs an Ollama server Render can reach: set `OLLAMA_HOST` to,

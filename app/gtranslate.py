@@ -1,7 +1,7 @@
 """English subtitles for the demo page, from Google Translate.
 
 For the judges only: Noor never sees this, and nothing here feeds the AI chain
-(that runs on NLLB, on our own server). With GOOGLE_TRANSLATE_API_KEY set this
+(that runs on our own Opus-MT model, on our own server). With GOOGLE_TRANSLATE_API_KEY set this
 calls the Cloud Translation API v2; without it, the free endpoint Google's own
 web widgets use, which needs no key and is fine for a demo.
 """

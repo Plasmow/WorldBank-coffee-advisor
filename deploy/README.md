@@ -55,6 +55,7 @@ so a crash at 3 a.m. does not end the demo.
 ```bash
 sudo -u coffee uv pip install -r requirements-ai.txt   # 125 MB
 ```
-Add `USE_REAL_AI=1` and `NLLB_CT2_REPO=<user>/nllb-ct2-int8` to `.env`, then
+Add `USE_REAL_AI=1` to `.env` (the translator is fetched from the Hub on
+first use, or set `TRANSLATOR_REPO`), then
 restart. Budget 1.5 GB of RAM for the translator, and check `/health` says
 `"loaded": true` before believing it.

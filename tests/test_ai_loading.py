@@ -11,10 +11,15 @@ import types
 import pytest
 
 
-def fake_ai_module(fn):
+def _no_model():
+    raise FileNotFoundError("nothing on disk and nothing on the Hub")
+
+
+def fake_ai_module(fn, preload=None):
     """Stands in for ai.analyze without importing anything heavy."""
     mod = types.ModuleType("ai.analyze")
     mod.analyze = fn
+    mod.preload = preload or (lambda: 0.0)
     return mod
 
 
@@ -39,17 +44,26 @@ def test_the_server_still_boots_when_the_model_is_missing(monkeypatch, tmp_path)
 
     monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
     monkeypatch.setenv("USE_REAL_AI", "1")
-    monkeypatch.setenv("NLLB_CT2_DIR", str(tmp_path / "nowhere"))
-    monkeypatch.setenv("NLLB_CT2_REPO", "")
+
+    # The preload runs in a thread that outlives this test, so stub the chain
+    # itself rather than the model path: a stub that raises at once finishes
+    # before the monkeypatch is undone, and nothing reaches the Hub.
+    def no_model():
+        raise FileNotFoundError("nothing on disk and nothing on the Hub")
+
+    monkeypatch.setitem(sys.modules, "ai.analyze", fake_ai_module(None, preload=no_model))
 
     from app import main
 
     with TestClient(main.app) as c:          # boots, does not raise
-        body = c.get("/health").json()
+        for _ in range(50):                  # the preload thread is not instant
+            body = c.get("/health").json()
+            if not body["ai"].get("loading"):
+                break
     assert body["ok"] is True
     assert body["ai"]["enabled"] is True
     assert body["ai"]["loaded"] is False     # and says so plainly
-
+    assert body["translator_loaded"] is False
 
 def test_a_chain_that_throws_sends_the_farmer_to_a_human(client, monkeypatch, agent_sms):
     def boom(text, clarify_answer=None):
@@ -100,11 +114,3 @@ def test_a_well_formed_chain_result_is_passed_through(client, monkeypatch):
     assert incoming["label"] == "leaf_rust" and incoming["proba"] == 0.93
 
 
-def test_translate_says_plainly_what_is_missing(monkeypatch, tmp_path):
-    import ai.translate as tr
-
-    monkeypatch.setenv("NLLB_CT2_DIR", str(tmp_path / "absent"))
-    monkeypatch.setenv("NLLB_CT2_REPO", "")
-    tr.get_translator.cache_clear()
-    with pytest.raises(FileNotFoundError, match="convert_nllb_ct2"):
-        tr.load()

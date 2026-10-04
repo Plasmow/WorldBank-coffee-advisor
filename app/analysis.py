@@ -1,7 +1,7 @@
 """The seam between the backend and P3's AI chain.
 
 app/ never imports the heavy parts of ai/ at module level: the chain loads
-NLLB-200 (CTranslate2, ~600 MB), e5-small and torch, which would sink both the
+the Opus-MT translator, e5-small and torch, which would sink both the
 tests and the boot. The real chain is imported inside the function, only when
 USE_REAL_AI=1; ai/lang.py, pure Python, is the exception.
 """
@@ -9,6 +9,7 @@ USE_REAL_AI=1; ai/lang.py, pure Python, is the exception.
 import logging
 import os
 import re
+import sys
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ HINTS = {
 # Understood perfectly well, and still none of our business: the classifier was
 # trained on leaves. Asking a clarifying question here would burn the farmer's
 # one reply to arrive at the same place, so this goes straight to a human.
-# "bean" is deliberately absent: NLLB renders plain coffee talk as "my coffee
+# "bean" is deliberately absent: a translator can render plain coffee talk as "my coffee
 # beans", including messages that were about leaves, so treating it as out of
 # scope would hand every translated message to an agent untouched.
 OUT_OF_SCOPE = (
@@ -54,6 +55,17 @@ def state():
     # enabled is read live: the preload runs in a thread and may not have
     # started when the first /health arrives.
     return {**_STATE, "enabled": enabled()}
+
+
+def translator_loaded():
+    """Whether the translation model is in memory, for /health.
+
+    Looks in sys.modules rather than importing ai.translate: if nothing has
+    imported it, nothing has loaded a model, and asking must not be what
+    pulls one in.
+    """
+    module = sys.modules.get("ai.translate")
+    return bool(module and module.is_loaded())
 
 
 def preload():

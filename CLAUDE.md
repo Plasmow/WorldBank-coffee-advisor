@@ -7,7 +7,7 @@ Rendu : dimanche 4 octobre 2026, 12 h (Paris). Live Demo en ligne obligatoire + 
 
 Conseiller agricole **par SMS** pour Noor, petite productrice de café au mont Elgon (Ouganda), qui n'a qu'un **téléphone basique** et parle luganda.
 
-- SMS libre → traduction (NLLB-200) → classifieur (`leaf_rust`, `phoma`, `healthy`, `other`) + second avis d'un petit LLM → réponse **fixe** tirée de `data/templates.json`.
+- SMS libre → traduction (Opus-MT lg→en affiné, CTranslate2 int8) → classifieur (`leaf_rust`, `phoma`, `healthy`, `other`) + second avis d'un petit LLM → réponse **fixe** tirée de `data/templates.json`.
 - Message flou : une seule question de précision. Doute persistant ou `other` : « pas sûr » à Noor + **SMS automatique à l'agent** (garde-fou humain, critère éliminatoire).
 - Suivi automatique 3 jours après un diagnostic, entre 18 h et 20 h (UTC+3). Réponse « 3 = pire » → alerte agent.
 - Mots-clés : `PRIX` (prix UCDA, sans IA), `AIDE`, `STOP` / `START`. Bienvenue + consentement au premier message.
@@ -23,7 +23,7 @@ Hors périmètre : app mobile, vision, tableau de bord agent, grand LLM (Claude,
 
 ```
 app/   main.py (routes, CORS, /health) · router.py (handle_incoming) · db.py · clock.py · scheduler.py · at_client.py · demo_routes.py
-ai/    analyze.py (décision) · translate.py (NLLB CT2 int8 + glossaire) · classifier.py (e5 + classifier.npz) · llm.py (Ollama) · lang.py
+ai/    analyze.py (décision) · translate.py (Opus-MT CT2 int8 + glossaire) · classifier.py (e5 + classifier.npz) · llm.py (Ollama) · lang.py
 data/  templates.json (en, lg) · prices.json
 web/   index.html          scripts/ model/ docs/   données et classifieur
 ```

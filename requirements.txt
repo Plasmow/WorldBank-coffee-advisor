@@ -1,8 +1,13 @@
-# The web server alone: enough to boot, run the tests and serve the demo with
-# the keyword fallback (USE_REAL_AI=0). The models are in requirements-ai.txt.
+# The web server and the Luganda translator. ~80 MB of model on top, which is
+# the whole point of the Opus-MT fine-tune: this fits on a 512 MB instance.
+# No torch here -- CTranslate2 runs the translation on its own.
 fastapi==0.142.2
 uvicorn[standard]==0.54.0
 python-multipart==0.0.20
 httpx==0.28.1
 python-dotenv==1.2.4
 pytest==8.3.4
+ctranslate2==4.8.2
+transformers==5.18.0
+sentencepiece==0.2.2
+huggingface_hub==1.33.0

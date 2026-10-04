@@ -1,6 +1,6 @@
 """Quality report for the AI chain: translation, then analyze() end to end.
 
-Not a pytest file (pytest only collects test_*.py): it loads the real Sunbird NLLB
+Not a pytest file (pytest only collects test_*.py): it loads the real translation
 model and talks to Ollama, and prints a report a human reads.
 
     python -m ai.test              # everything
@@ -115,7 +115,7 @@ def chrf(hyp, ref, max_n=6, beta=2):
 # ---------- sections ----------
 
 def run_translate():
-    print("\n=== Luganda -> English (Sunbird translate-nllb-1.3b-salt, CTranslate2 int8) ===")
+    print("\n=== Luganda -> English (Opus-MT fine-tune, CTranslate2 int8) ===")
     t0 = time.perf_counter()
     translate.load()
     print(f"model loaded in {time.perf_counter() - t0:.1f}s")
@@ -179,15 +179,21 @@ def run_analyze():
 
 
 def run_templates():
-    print("\n=== English -> Luganda on SMS templates (Sunbird, for a human to check) ===")
-    translate.load()
+    """What Noor actually receives, for a Luganda speaker to check.
+
+    No model here any more: the translator only goes lg -> en, and every
+    message going out is written by hand in data/templates.json.
+    """
+    print("\n=== SMS templates, en + lg (for a human to check) ===")
     templates = json.loads((ROOT / "data" / "templates.json").read_text(encoding="utf-8"))
-    if isinstance(templates.get("en"), dict):
-        templates = templates["en"]
-    for key, text in templates.items():
-        if not isinstance(text, str):
+    unverified = 0
+    for key, value in templates.items():
+        if not isinstance(value, dict):
             continue
-        print(f"\n  {key}\n    en: {text}\n    lg: {translate.en_to_lug(text)}")
+        mark = "" if value.get("lg_verified") else "   [lg NOT verified]"
+        unverified += 0 if value.get("lg_verified") else 1
+        print(f"\n  {key}{mark}\n    en: {value.get('en', '')}\n    lg: {value.get('lg', '')}")
+    print(f"\n  {unverified} of {len(templates)} still need a native speaker's eye.")
 
 
 SECTIONS = {"translate": run_translate, "analyze": run_analyze, "templates": run_templates}

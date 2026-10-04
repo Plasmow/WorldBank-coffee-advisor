@@ -2,8 +2,8 @@
 
     RUN_MODEL_TESTS=1 python -m pytest tests/test_models.py -v
 
-Needs the NLLB CTranslate2 folder (model/nllb-ct2-int8 or ai/nllb-600m-ct2),
-torch + transformers for e5-small, and optionally Ollama for the LLM.
+Downloads the Opus-MT CTranslate2 model on first run (~80 MB), and needs
+torch + transformers for e5-small, optionally Ollama for the LLM.
 Run it before every deploy that touches ai/ or model/.
 """
 
@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_nllb_translates_luganda_to_english():
+def test_the_model_translates_luganda_to_english():
     from ai import translate
 
     out = translate.lug_to_en("Ebikoola by'emmwanyi zange birina obuwunga wansi waabyo")

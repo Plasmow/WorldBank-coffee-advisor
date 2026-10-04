@@ -1,7 +1,7 @@
 """The English subtitles on the demo page (judges only).
 
 Our replies use the template's own English; Noor's messages use Google
-Translate, or the chain's NLLB translation when Google is unavailable.
+Translate, or the chain's own translation when Google is unavailable.
 """
 
 import time
@@ -58,7 +58,7 @@ def test_replies_use_the_template_english_and_never_call_google(client, monkeypa
     assert len(calls) <= 2
 
 
-def test_noor_message_falls_back_to_nllb_when_google_is_down(client, monkeypatch):
+def test_noor_message_falls_back_to_our_model_when_google_is_down(client, monkeypatch):
     import app.router
 
     def chain(text, clarify_answer=None):
@@ -71,7 +71,7 @@ def test_noor_message_falls_back_to_nllb_when_google_is_down(client, monkeypatch
     client.post("/api/demo/send", json={"phone": NOOR, "text": "Obuwunga bwa kacungwa wansi w'ebikoola"})
 
     noor = [r for r in english(client, NOOR) if r["direction"] == "in"][0]
-    assert (noor["en"], noor["via"]) == ("orange powder under the leaves", "nllb")
+    assert (noor["en"], noor["via"]) == ("orange powder under the leaves", "opus")
 
 
 def test_a_429_pauses_google_instead_of_hammering_it(monkeypatch):

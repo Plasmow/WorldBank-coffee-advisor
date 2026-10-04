@@ -32,7 +32,7 @@ Data (one or more of):
 With no option: --split test and --csv data/eval/hard_test.csv (if it exists).
 
 Robustness to translation (--roundtrip): every text is translated English -> Luganda -> English
-with NLLB (ai/translate.py; convert the weights once with scripts/convert_nllb_ct2.py), re-embedded
+with the Opus-MT translator (ai/translate.py), re-embedded
 and evaluated again. This mimics a farmer writing in Luganda whose message is translated before it
 reaches the classifier. The report compares it with the original English texts: change in correct
 answers / confident errors / handoffs, and how many predictions changed.
@@ -92,11 +92,17 @@ def load_csv(path: Path, bundle: dict) -> tuple[np.ndarray, list[str], list[str]
 
 
 def round_trip(texts: list[str]) -> list[str]:
-    """English -> Luganda -> English with NLLB."""
-    from ai import translate
+    """No longer possible, and that is an improvement.
 
-    translate.load()
-    return [translate.lug_to_en(translate.en_to_lug(t)) for t in texts]
+    The round trip was a stand-in for translation noise, built on a model
+    that went both ways. The Opus-MT fine-tune only goes lg -> en, and we now have real
+    human pairs to measure against instead of a model talking to itself.
+    """
+    raise SystemExit(
+        "--roundtrip needs an en -> lg model, and the translator is lg -> en only.\n"
+        "Measure translation quality on real pairs instead:\n"
+        "    python scripts/eval_translate.py"
+    )
 
 
 SWEEP = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0)
@@ -181,7 +187,7 @@ def compare(name: str, before: dict, after: dict, texts, translated, labels, sho
     """Original English vs the same messages after the Luganda round trip."""
     n = before["n"]
     changed = [i for i, (a, b) in enumerate(zip(before["pred"], after["pred"])) if a != b]
-    print(f"\n--- {name}: original vs after NLLB round trip (en -> lug -> en), {n} messages ---")
+    print(f"\n--- {name}: original vs after a round trip (en -> lug -> en), {n} messages ---")
     print(f"  {'':22s}{'original':>10s}{'translated':>12s}{'change':>9s}")
     for key, label in (("correct", "correct answers"), ("error", "confident errors"), ("handoff", "handoff (unknown)")):
         a, b = before[key] / n, after[key] / n
@@ -203,7 +209,7 @@ def main() -> None:
     ap.add_argument("--threshold", type=float, default=None, help="override the saved entropy threshold")
     ap.add_argument("--show", action="store_true", help="list the confident errors and the lost answers")
     ap.add_argument("--roundtrip", action="store_true",
-                    help="also evaluate after an English -> Luganda -> English NLLB round trip")
+                    help="removed: the translator is lg -> en only, see scripts/eval_translate.py")
     ap.add_argument("--max-roundtrip", type=int, default=300,
                     help="translate at most this many texts per dataset (first ones, in order)")
     args = ap.parse_args()

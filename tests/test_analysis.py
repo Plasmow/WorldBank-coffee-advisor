@@ -106,8 +106,8 @@ def test_brown_spots_read_as_phoma():
     assert (r["decision"], r["label"]) == ("answer", "phoma")
 
 
-def test_nllb_calling_coffee_beans_does_not_send_everyone_to_an_agent():
-    # Real NLLB output: "Ebikoola by'emmwanyi zange birina obutuli obwa kyenvu"
+def test_a_translator_calling_coffee_beans_does_not_send_everyone_to_an_agent():
+    # Real machine-translation output: "Ebikoola by'emmwanyi zange birina obutuli obwa kyenvu"
     # ("the leaves of my coffee have yellow spots") comes back as "My coffee
     # beans are yellowish". It loses the leaves and invents beans. With "bean"
     # treated as out of scope, every translated message would reach a human

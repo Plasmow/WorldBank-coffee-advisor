@@ -244,7 +244,7 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
       <h2 id="trTitle">The conversation in English</h2>
     </div>
     <div class="tr-thread" id="trThread" aria-live="polite"></div>
-    <div class="tr-foot">For viewers only: Noor sees the phone, in Luganda. Our replies show their exact English; Noor's messages are translated by Google, or by our own NLLB model when Google is unavailable.</div>
+    <div class="tr-foot">For viewers only: Noor sees the phone, in Luganda. Our replies show their exact English; Noor's messages are translated by Google, or by our own Luganda model when Google is unavailable.</div>
   </section>
 
   <!-- Phone -->
@@ -490,7 +490,7 @@ async function waitForReply(n0, timeout=25000){
    Fetched only when the conversation changes or a translation is still missing,
    so the 1.2 s poll does not turn into a stream of calls to Google. */
 const EN = {key:'', busy:false, rows:[], lastTry:0};
-const VIA = {template:'exact', google:'Google', nllb:'NLLB'};
+const VIA = {template:'exact', google:'Google', opus:'our model'};
 const LANG_NAMES = {lg:'Luganda', en:'English', sw:'Swahili', fr:'French'};
 function renderEnglish(){
   const th=$('trThread');

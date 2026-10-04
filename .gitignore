@@ -230,3 +230,4 @@ model/nllb-ct2-int8/
 .python-version
 uv.lock
 .hf_cache/
+model/opus-lg-en-ct2/

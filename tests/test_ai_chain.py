@@ -1,7 +1,7 @@
 """The real chain (ai/analyze.py), with every model replaced by a stub.
 
 The decision table is what keeps Noor safe, so it is tested here without
-NLLB, e5 or Ollama: fast, deterministic, and it runs on any laptop or CI.
+the translator, e5 or Ollama: fast, deterministic, and it runs on any laptop or CI.
 The models themselves are exercised by tests/test_models.py, which skips
 when they are not on disk.
 """
@@ -201,16 +201,56 @@ def test_translate_exposes_both_names_the_team_uses():
     assert tr.load is tr.preload
 
 
-def test_translate_says_what_is_missing_instead_of_importing_a_model(monkeypatch, tmp_path):
+def test_a_missing_model_leaves_the_luganda_untouched(monkeypatch):
+    """No download in CI, and no silence for the farmer either.
+
+    lug_to_en must never raise: the glossary still feeds the classifier, and
+    a clarifying question beats a dropped message.
+    """
     import ai.translate as tr
 
-    monkeypatch.setenv("NLLB_CT2_DIR", str(tmp_path / "absent"))
-    monkeypatch.setenv("NLLB_CT2_REPO", "")
-    tr.get_translator.cache_clear()
-    with pytest.raises(FileNotFoundError, match="convert_nllb_ct2"):
-        tr.load()
-    tr.get_translator.cache_clear()
+    def no_model():
+        raise FileNotFoundError("nothing on disk and nothing on the Hub")
 
+    monkeypatch.setattr(tr, "_ensure_model", no_model)
+    tr.get_translator.cache_clear()
+    tr.get_tokenizer.cache_clear()
+    tr._translate.cache_clear()
+    monkeypatch.setattr(tr, "_warned", False)
+
+    assert tr.lug_to_en("Ebikoola birina obuwunga") == "Ebikoola birina obuwunga"
+    assert tr.is_loaded() is False
+    # the glossary still carries the words the classifier keys on
+    assert "powder" in tr.lug_to_en_with_terms("Ebikoola birina obuwunga")
+
+
+def test_load_still_reports_the_failure_so_health_can_show_it(monkeypatch):
+    import ai.translate as tr
+
+    def no_model():
+        raise FileNotFoundError("nothing on disk and nothing on the Hub")
+
+    monkeypatch.setattr(tr, "_ensure_model", no_model)
+    tr.get_translator.cache_clear()
+    with pytest.raises(FileNotFoundError):
+        tr.load()
+
+
+def test_the_model_is_never_downloaded_just_to_translate_english(monkeypatch):
+    import ai.translate as tr
+
+    called = []
+    monkeypatch.setattr(tr, "_ensure_model", lambda: called.append(1))
+    tr._translate.cache_clear()
+    tr.lug_to_en("")          # empty input short-circuits
+    assert called == []
+
+
+def test_en_to_lug_refuses_and_says_where_to_look():
+    import ai.translate as tr
+
+    with pytest.raises(NotImplementedError, match="templates.json"):
+        tr.en_to_lug("It looks like the leaf has rust")
 
 def test_the_translator_is_cached():
     import ai.translate as tr
@@ -237,3 +277,16 @@ def test_language_detection_keeps_the_default_when_it_cannot_tell():
 
     assert detect_lang("zzzz", default="lg") == "lg"
     assert detect_lang("123", default="en") == "en"
+
+
+def test_health_reports_whether_the_translator_is_in_memory(client):
+    body = client.get("/health").json()
+    assert body["translator_loaded"] is False  # nothing loaded a model in the tests
+
+
+def test_asking_health_never_pulls_in_the_translation_model(client):
+    import sys
+
+    sys.modules.pop("ai.translate", None)
+    client.get("/health")
+    assert "ai.translate" not in sys.modules

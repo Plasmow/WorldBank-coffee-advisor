@@ -1,40 +1,39 @@
-"""Luganda <-> English, with NLLB-200-distilled-600M converted to CTranslate2 int8.
+"""Luganda -> English, with our Opus-MT fine-tune converted to CTranslate2 int8.
 
-Why not transformers at runtime. In float32 the model is ~2.4 GB and needs
-torch for generation; converted once to CTranslate2 int8 it is ~600 MB, loads
-in seconds and runs several times faster on CPU. Only the tokenizer comes from
-transformers.
+Replaces NLLB-200-distilled-600M: that one was ~600 MB of weights, more than a
+512 MB instance can hold, and it knew almost no farming Luganda. This model is
+fine-tuned on SALT plus agricultural SMS and converted to int8, which brings it
+to ~80 MB -- small enough to live on the same free instance as the web server.
+
+One direction only. Opus-MT lg->en has no language tag and no reverse pass;
+messages going out to Noor come from the `lg` side of data/templates.json, not
+from a model.
 
 Nothing heavy is imported at module level: a message written in English never
-needs the model at all. Convert once with scripts/convert_nllb_ct2.py, or set
-NLLB_CT2_REPO to a converted copy on the Hugging Face Hub, then call load()
-from the server's lifespan.
+needs the model at all. The weights come from the Hub on first use, and a
+failure to load degrades to passing the Luganda through untouched -- the
+classifier then sees the glossary terms, and the server keeps answering.
 """
 
 import logging
 import os
 import pathlib
+import re
 import time
 from functools import lru_cache
 
 log = logging.getLogger(__name__)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TOKENIZER_NAME = os.environ.get("NLLB_TOKENIZER") or "facebook/nllb-200-distilled-600M"
-# First match wins: where scripts/convert_nllb_ct2.py writes, then the older local copy.
-DEFAULT_DIRS = (ROOT / "model" / "nllb-ct2-int8", ROOT / "ai" / "nllb-600m-ct2")
-LUG, ENG = "lug_Latn", "eng_Latn"
+DEFAULT_REPO = "Adom4600/opus-lg-en-coffee-ct2"
+DEFAULT_DIR = ROOT / "model" / "opus-lg-en-ct2"
+
+_warned = False  # the "translator is down" line is worth saying once, not once per SMS
 
 
 def model_dir():
     # Read at call time, not import time: tests and the host set this after import.
-    env = os.environ.get("NLLB_CT2_DIR")
-    if env:
-        return pathlib.Path(env)
-    for path in DEFAULT_DIRS:
-        if (path / "model.bin").exists():
-            return path
-    return DEFAULT_DIRS[0]
+    return pathlib.Path(os.environ.get("TRANSLATOR_DIR") or DEFAULT_DIR)
 
 
 def _ensure_model():
@@ -43,54 +42,45 @@ def _ensure_model():
         return path
 
     # Weights never go in git, so a fresh host pulls them once from the Hub.
-    repo = os.environ.get("NLLB_CT2_REPO") or ""
-    if repo:
-        from huggingface_hub import snapshot_download
+    repo = os.environ.get("TRANSLATOR_REPO") or DEFAULT_REPO
+    from huggingface_hub import snapshot_download
 
-        log.info("downloading %s into %s", repo, path)
-        return pathlib.Path(snapshot_download(repo, local_dir=str(path)))
-
-    raise FileNotFoundError(
-        f"No CTranslate2 model in {path}. Run scripts/convert_nllb_ct2.py once, "
-        f"or set NLLB_CT2_REPO to a converted model on the Hugging Face Hub."
-    )
+    log.info("downloading %s into %s", repo, path)
+    return pathlib.Path(snapshot_download(repo, local_dir=str(path)))
 
 
 @lru_cache(maxsize=1)
 def get_translator():
-    path = _ensure_model()  # before the import: the slim install has no ctranslate2
+    path = _ensure_model()  # before the import: a slim install has no ctranslate2
     import ctranslate2
 
-    compute_type = os.environ.get("NLLB_COMPUTE_TYPE") or "int8"
+    compute_type = os.environ.get("TRANSLATOR_COMPUTE_TYPE") or "int8"
     log.info("loading CTranslate2 model from %s (%s)", path, compute_type)
     return ctranslate2.Translator(
         str(path), device="cpu", compute_type=compute_type,
-        inter_threads=1, intra_threads=int(os.environ.get("NLLB_THREADS", "0")),
+        inter_threads=1, intra_threads=int(os.environ.get("TRANSLATOR_THREADS", "0")),
     )
 
 
 @lru_cache(maxsize=1)
 def get_tokenizer():
-    """One tokenizer for both directions: only the source language tag changes.
-
-    Always the original model's (17 MB, cached by scripts/fetch_models.py):
-    copies shipped next to converted weights come in several formats.
-    """
+    """The tokenizer saved next to the weights, so it cannot drift from them."""
     from transformers import AutoTokenizer
 
-    return AutoTokenizer.from_pretrained(TOKENIZER_NAME)
+    return AutoTokenizer.from_pretrained(str(_ensure_model()))
 
 
 def load():
     """Warm everything up at server startup. Returns seconds spent.
 
     The dummy sentence matters: the first translation is far slower than the
-    rest, and Noor should not be the one paying for it.
+    rest, and Noor should not be the one paying for it. Raises if the model
+    cannot be had -- app.analysis.preload() catches that and /health reports it.
     """
     started = time.monotonic()
     get_translator()
     get_tokenizer()
-    lug_to_en("Ebikoola bya kawa")
+    _translate("Ebikoola bya kawa")
     elapsed = time.monotonic() - started
     log.info("translation model ready in %.1fs", elapsed)
     return elapsed
@@ -104,35 +94,44 @@ def is_loaded():
 
 
 @lru_cache(maxsize=2048)
-def _translate(text, src_lang, tgt_lang):
+def _translate(text):
     text = (text or "").strip()
     if not text:
         return ""
 
     tokenizer = get_tokenizer()
-    tokenizer.src_lang = src_lang
     translator = get_translator()
 
-    # CTranslate2 works on tokens, not ids. The source carries its language tag
-    # from the tokenizer; the target one is forced as a prefix.
+    # CTranslate2 works on tokens, not ids. Opus-MT carries no language tag, so
+    # there is no prefix to force and nothing to strip off the hypothesis.
     source = tokenizer.convert_ids_to_tokens(tokenizer.encode(text))
     results = translator.translate_batch(
-        [source], target_prefix=[[tgt_lang]], beam_size=4,
-        max_decoding_length=256, repetition_penalty=1.2, no_repeat_ngram_size=3,
+        [source], beam_size=4, max_decoding_length=128,
+        repetition_penalty=1.2, no_repeat_ngram_size=3,
     )
-    hypothesis = results[0].hypotheses[0][1:]  # drop the language tag we forced
+    hypothesis = results[0].hypotheses[0]
     return tokenizer.decode(
         tokenizer.convert_tokens_to_ids(hypothesis), skip_special_tokens=True
     )
 
 
 def lug_to_en(text):
-    return _translate(text, LUG, ENG)
+    """Never raises. A missing or broken model returns the Luganda untouched:
+    the glossary below still gives the classifier something to work with, and a
+    farmer gets a clarifying question instead of silence."""
+    global _warned
+    try:
+        return _translate(text)
+    except Exception:
+        if not _warned:
+            log.exception("translator unavailable; Luganda will pass through untranslated")
+            _warned = True
+        return text
 
 
-# NLLB-600M knows little farming Luganda: "obuwunga" (powder) comes back as
-# "flour", "kacungwa" (orange) as "pink", "emmwanyi" (coffee) as "skin". The
-# terms the classifier depends on are matched by stem and appended in English.
+# The model knows farming Luganda far better than NLLB did, but the words the
+# classifier keys on are worth guaranteeing: they are matched by stem and
+# appended in English when the translation drops them.
 GLOSSARY = {
     "mmwanyi": "coffee", "kaawa": "coffee", "kawa": "coffee",
     "bikoola": "leaves", "kikoola": "leaf",
@@ -151,8 +150,6 @@ GLOSSARY = {
 
 def glossary_terms(text):
     """English for the farming words found in a Luganda message, in order."""
-    import re
-
     terms = []
     for word in re.findall(r"[a-z]+", (text or "").lower()):
         for stem, en in GLOSSARY.items():
@@ -165,11 +162,15 @@ def glossary_terms(text):
 
 
 def lug_to_en_with_terms(text):
-    """NLLB's translation, followed by the glossary terms it may have lost."""
+    """The translation, followed by the glossary terms it may have lost."""
     english = lug_to_en(text)
     missing = [t for t in glossary_terms(text) if t not in english.lower()]
     return f"{english} ({', '.join(missing)})" if missing else english
 
 
 def en_to_lug(text):
-    return _translate(text, ENG, LUG)
+    raise NotImplementedError(
+        "The Opus-MT model only translates Luganda to English. Messages going "
+        "out to Noor must come from the 'lg' side of data/templates.json, "
+        "never from a model."
+    )

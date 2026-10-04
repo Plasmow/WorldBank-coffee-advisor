@@ -3,46 +3,45 @@
 
     python scripts/fetch_models.py
 
-- NLLB-200-distilled-600M in CTranslate2 int8 (~620 MB) from NLLB_CT2_REPO
-  into model/nllb-ct2-int8/ (skipped if a local copy already exists);
-- the NLLB tokenizer and e5-small-v2 into the Hugging Face cache (HF_HOME).
+- the Opus-MT lg->en fine-tune in CTranslate2 int8 (~80 MB) from
+  TRANSLATOR_REPO into model/opus-lg-en-ct2/, tokenizer included;
+- e5-small-v2 into the Hugging Face cache (HF_HOME), for the classifier.
 
 On Render this runs in the build command, so a deploy never downloads at
 boot and a cold start only loads from disk. Weights never go in git.
 """
-import os
 import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-DEFAULT_REPO = "JustFrederik/nllb-200-distilled-600M-ct2-int8"
-
 
 def main():
-    from huggingface_hub import snapshot_download
-
     from ai import translate
 
     path = translate.model_dir()
     if (path / "model.bin").exists():
-        print(f"NLLB: {path} already there")
+        print(f"translator: {path} already there")
     else:
-        repo = os.environ.get("NLLB_CT2_REPO") or DEFAULT_REPO
-        target = pathlib.Path(os.environ.get("NLLB_CT2_DIR") or translate.DEFAULT_DIRS[0])
-        print(f"NLLB: downloading {repo} into {target}")
-        snapshot_download(repo, local_dir=str(target),
-                          allow_patterns=["model.bin", "config.json", "shared_vocabulary.*"])
+        # _ensure_model does the download, and knows where it goes.
+        print(f"translator: fetching into {path}")
+        translate._ensure_model()
 
-    from transformers import AutoModel, AutoTokenizer
+    # The tokenizer ships inside the model folder, so nothing else to fetch
+    # for translation. The classifier's embedder is a separate download.
+    npz = ROOT / "model" / "classifier.npz"
+    if not npz.exists():
+        print("classifier: model/classifier.npz missing, skipping the embedder")
+        return
+    try:
+        import numpy as np
+        from transformers import AutoModel, AutoTokenizer
+    except ImportError as exc:
+        print(f"classifier: {exc}; install requirements-ai.txt to fetch the embedder")
+        return
 
-    print(f"tokenizer: {translate.TOKENIZER_NAME}")
-    AutoTokenizer.from_pretrained(translate.TOKENIZER_NAME)
-
-    import numpy as np
-
-    embedder = str(np.load(ROOT / "model" / "classifier.npz")["embedder"])
+    embedder = str(np.load(npz)["embedder"])
     print(f"embedder: {embedder}")
     AutoTokenizer.from_pretrained(embedder)
     AutoModel.from_pretrained(embedder)

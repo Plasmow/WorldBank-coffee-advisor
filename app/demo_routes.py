@@ -101,7 +101,7 @@ def english(phone: str):
 
     - our replies: the exact English of the template they came from;
     - Noor's messages: Google Translate, or, when Google is unavailable,
-      the NLLB translation the AI chain already made of them.
+      the translation the AI chain already made of them.
 
     Takes a phone, not free text: the route translates only what is already
     in a demo conversation, so it cannot be used as a free translation proxy.
@@ -119,7 +119,7 @@ def english(phone: str):
         (en, src), = gtranslate.to_english([m["text"]])
         via = "google"
         if en is None and m["text_en"]:
-            en, src, via = m["text_en"], "lg", "nllb"
+            en, src, via = m["text_en"], "lg", "opus"
         out.append({"id": m["id"], "direction": m["direction"], "text": m["text"],
                     "en": en, "src": src, "via": via if en is not None else None})
     return {"messages": out}

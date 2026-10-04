@@ -105,7 +105,12 @@ def _rss_mb():
 def health():
     """Liveness, plus the two things that actually go wrong on a small
     instance: memory, and whether the model is really loaded."""
-    return {"ok": True, "rss_mb": _rss_mb(), "ai": analysis.state()}
+    return {
+        "ok": True,
+        "rss_mb": _rss_mb(),
+        "ai": analysis.state(),
+        "translator_loaded": analysis.translator_loaded(),
+    }
 
 
 
