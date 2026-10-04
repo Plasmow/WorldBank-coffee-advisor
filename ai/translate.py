@@ -1,19 +1,19 @@
 from functools import lru_cache
+from pathlib import Path
 
-import torch
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+import ctranslate2
+from transformers import AutoTokenizer
 
-MODEL_NAME = "facebook/nllb-200-distilled-600M"
+MODEL_NAME = "facebook/nllb-200-distilled-600M"  # uniquement pour les tokenizers
+CT2_DIR = Path(__file__).resolve().parent / "nllb-600m-ct2"
+
+LUG = "lug_Latn"
+ENG = "eng_Latn"
 
 
 @lru_cache(maxsize=1)
-def get_model():
-    model = AutoModelForSeq2SeqLM.from_pretrained(
-        MODEL_NAME,
-        low_cpu_mem_usage=True,  # limite le pic de RAM au chargement
-    )
-    model.eval()
-    return model
+def get_translator() -> ctranslate2.Translator:
+    return ctranslate2.Translator(str(CT2_DIR), device="cpu", compute_type="int8")
 
 
 @lru_cache(maxsize=None)
@@ -21,23 +21,30 @@ def get_tokenizer(src_lang: str):
     return AutoTokenizer.from_pretrained(MODEL_NAME, src_lang=src_lang)
 
 
+def preload() -> None:
+    """À appeler au démarrage du serveur : charge le modèle et les tokenizers."""
+    get_translator()
+    get_tokenizer(LUG)
+    get_tokenizer(ENG)
+
+
 def _translate(text: str, src_lang: str, tgt_lang: str) -> str:
     tokenizer = get_tokenizer(src_lang)
-    model = get_model()
-
-    inputs = tokenizer(text, return_tensors="pt")
-    with torch.inference_mode():
-        translated_tokens = model.generate(
-            **inputs,
-            forced_bos_token_id=tokenizer.convert_tokens_to_ids(tgt_lang),
-            max_length=512,
-        )
-    return tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
+    source = tokenizer.convert_ids_to_tokens(tokenizer.encode(text))
+    result = get_translator().translate_batch(
+        [source],
+        target_prefix=[[tgt_lang]],
+        max_decoding_length=512,
+    )
+    target = result[0].hypotheses[0][1:]  # on retire le token de langue cible
+    return tokenizer.decode(
+        tokenizer.convert_tokens_to_ids(target), skip_special_tokens=True
+    )
 
 
 def lug_to_en(text: str) -> str:
-    return _translate(text, "lug_Latn", "eng_Latn")
+    return _translate(text, LUG, ENG)
 
 
 def en_to_lug(text: str) -> str:
-    return _translate(text, "eng_Latn", "lug_Latn")
+    return _translate(text, ENG, LUG)

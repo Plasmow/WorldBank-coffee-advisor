@@ -2,7 +2,7 @@ from ai.translate import *
 
 threshold = 0.8
 
-def analyze_from_query(text:str, clarify_answer=None):
+def analyze(text:str, clarify_answer=None):
     query_eng = lug_to_en(text)
     
     classifier_prediction = class_predict(query_eng)
