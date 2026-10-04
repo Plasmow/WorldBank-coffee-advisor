@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coffee Advisor · Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: top bar, then three columns — Noor's day (scene + time of day), the phone, behind the scenes + agent */
+:root{
+  --bg:#E8ECE5; --panel:#FFFFFF; --ink:#17201C; --muted:#5D6A63; --line:#D4DBD3;
+  --leaf:#2E6A4E; --leaf-soft:#E0EDE5; --amber:#A86F14; --amber-soft:#F6EAD3;
+  --cherry:#B0362A; --cherry-soft:#F7E0DC; --slate:#56606A; --slate-soft:#E7EAEE;
+  --screen:#F3F6F1; --bubble-in:#E4E9E2;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;min-height:100vh}
+button{font:inherit}
+h1,h2,h3{font-family:var(--f-display);margin:0}
+
+/* top bar */
+.topbar{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:16px 24px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:24px;font-weight:800;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:13px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;cursor:pointer;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 16px;cursor:pointer;font-weight:500;color:var(--ink)}
+.btn.primary{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.btn:focus-visible,.seg button:focus-visible,.chip:focus-visible,.key:focus-visible,.timebtn:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+#apiBase{border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-family:var(--f-mono);font-size:12px;width:220px;background:var(--panel)}
+.badge{font-family:var(--f-mono);font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--amber-soft);color:var(--amber)}
+.badge.live{background:var(--leaf-soft);color:var(--leaf)}
+.badge.err{background:var(--cherry-soft);color:var(--cherry)}
+
+/* grid */
+main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content:center;gap:40px;padding:4px 24px 32px;align-items:start;max-width:1200px;margin:0 auto}
+@media (max-width:980px){main{grid-template-columns:1fr;justify-items:stretch}.phone-col{justify-self:center}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:14px;min-width:0}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card h2{font-size:18px;font-weight:600}
+
+/* scene */
+.scene-wrap{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+#scene{display:block;width:100%;height:auto}
+.scene-caption{display:grid;gap:4px}
+.clock{font-family:var(--f-display);font-weight:800;font-size:28px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:10px}
+.clock small{font-family:var(--f-body);font-weight:500;font-size:13px;color:var(--muted)}
+#sceneText{color:var(--muted);max-width:52ch}
+.times{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.timebtn{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:8px 6px;cursor:pointer;display:grid;justify-items:center;gap:2px;color:var(--ink)}
+.timebtn svg{width:22px;height:22px}
+.timebtn b{font-size:12.5px;font-weight:600}
+.timebtn small{font-family:var(--f-mono);font-size:10.5px;color:var(--muted)}
+.timebtn[aria-pressed="true"]{border-color:var(--leaf);background:var(--leaf-soft)}
+.daynav{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px}
+.daynav button{border:1px solid var(--line);background:var(--panel);border-radius:8px;width:28px;height:28px;cursor:pointer}
+
+/* phone */
+.phone-col{display:grid;justify-items:center;gap:14px}
+.phone{width:292px;background:linear-gradient(165deg,#2D3337 0%,#1B1F22 100%);border-radius:42px;padding:22px 20px 26px;box-shadow:0 32px 60px -24px rgba(18,30,24,.55),inset 0 0 0 2px #3B4247}
+.earpiece{width:58px;height:6px;border-radius:3px;background:#0D1012;margin:0 auto 14px}
+.screen{position:relative;background:var(--screen);border-radius:10px;height:336px;display:flex;flex-direction:column;overflow:hidden;border:3px solid #0D1012}
+.status{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-mono);font-size:10.5px;padding:4px 8px;background:#DCE4D9;color:#22302A}
+.sig{letter-spacing:-1px}
+.thread-head{font-weight:600;font-size:12px;padding:6px 9px;border-bottom:1px solid #D6DDD4;background:#ECF2EA;display:flex;justify-content:space-between}
+.thread-head span{font-family:var(--f-mono);font-weight:400;color:var(--muted)}
+.thread{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.empty-thread{margin:auto;text-align:center;color:var(--muted);font-size:12px;padding:0 16px}
+.bubble{max-width:86%;padding:6px 9px;border-radius:11px;font-size:12.5px;line-height:1.35;white-space:pre-wrap;word-wrap:break-word}
+.bubble.service{background:var(--bubble-in);align-self:flex-start;border-bottom-left-radius:3px}
+.bubble.noor{background:var(--leaf);color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.bubble .meta{display:block;font-size:9.5px;opacity:.7;margin-top:3px;font-family:var(--f-mono)}
+.bubble.fresh{animation:fresh 2s ease}
+.verdict{align-self:flex-end;max-width:86%;margin-top:-2px;padding:2px 7px;border-radius:999px;
+  font-family:var(--f-mono);font-size:9px;letter-spacing:.02em;white-space:nowrap}
+.verdict.answer{background:var(--leaf-soft);color:var(--leaf)}
+.verdict.clarify{background:var(--amber-soft);color:var(--amber)}
+.verdict.escalate{background:var(--cherry-soft);color:var(--cherry)}
+@keyframes fresh{0%{box-shadow:0 0 0 3px rgba(176,54,42,.55)}100%{box-shadow:0 0 0 0 rgba(176,54,42,0)}}
+.composer{display:flex;border-top:1px solid #D6DDD4;background:#fff}
+.composer input{flex:1;min-width:0;border:0;padding:9px;font:inherit;font-size:12.5px;outline:none;background:transparent}
+.composer button{border:0;background:var(--leaf);color:#fff;font-weight:600;padding:0 12px;cursor:pointer}
+.composer button:disabled{background:#9AA59F;cursor:not-allowed}
+.away{position:absolute;inset:0;background:linear-gradient(180deg,#17233B,#2A3A5C);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px}
+.away[hidden]{display:none}
+.away .big{font-family:var(--f-display);font-weight:800;font-size:44px;line-height:1}
+.away .where{font-size:13px;opacity:.85}
+.away .pill{margin-top:10px;background:#B0362A;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600}
+.away .pill.none{background:rgba(255,255,255,.14);font-weight:500}
+.softkeys{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin:16px 4px 12px}
+.sk{background:#33393D;color:#C8D0CB;border:0;border-radius:10px;height:30px;font-size:11px;cursor:pointer}
+.dpad{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#454C51,#2A2F33);border:2px solid #4B5357;color:#E6ECE8;font-weight:700;cursor:pointer}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.key{background:#2F3539;border:0;border-radius:12px;height:40px;color:#EEF2EF;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.key b{font-size:16px;font-weight:600}
+.key small{font-size:8.5px;letter-spacing:.08em;color:#9AA59F;margin-top:3px}
+.key:active,.sk:active,.dpad:active{transform:translateY(1px)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:330px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--ink)}
+.chip.kw{font-family:var(--f-mono)}
+.chip:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12px;color:var(--muted);text-align:center;max-width:300px}
+
+.event{font-size:12.5px;background:var(--cherry-soft);color:var(--cherry);border-radius:10px;padding:6px 12px;max-width:310px;text-align:center}
+.event.ok{background:var(--leaf-soft);color:var(--leaf)}
+.typing{align-self:flex-start;background:var(--bubble-in);border-radius:11px;padding:6px 10px;font-size:14px;letter-spacing:2px;color:var(--muted)}
+.typing span{animation:blink 1.2s infinite}.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{50%{opacity:.2}}
+.howto{max-width:1152px;margin:0 auto 18px;padding:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.howto b{color:var(--ink)}
+.howto em{font-style:normal;font-weight:600;color:var(--ink)}
+@media (max-width:980px){.howto{margin:0 24px 18px}}
+.footnote{max-width:1200px;margin:0 auto;padding:0 24px 28px;color:var(--muted);font-size:12px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1 id="projectName">Coffee Advisor</h1>
+    <span>SMS advice for smallholder coffee farmers · Mt Elgon, Uganda</span>
+  </div>
+  <div class="controls">
+    <span class="badge" id="modeBadge">Connecting to the backend…</span>
+    <button class="btn primary" id="playBtn">Play scenario</button>
+    <button class="btn" id="resetBtn">Reset</button>
+  </div>
+</header>
+
+<div class="howto" role="note"><b>How to try it</b><span>1. Press <em>Play scenario</em> to watch a full week in about a minute.</span><span>2. Or pick <em>Evening</em> and describe a problem on the coffee leaves.</span><span>3. Then move three days ahead and pick <em>Evening</em> again: the automatic follow-up arrives.</span></div>
+<main>
+  <!-- Noor's day -->
+  <section class="card" aria-labelledby="dayTitle">
+    <div>
+      <div class="eyebrow">Noor's day</div>
+      <h2 id="dayTitle">Where is Noor, where is her phone?</h2>
+    </div>
+    <div class="scene-wrap">
+      <svg id="scene" viewBox="0 0 400 240" role="img" aria-label="Noor's coffee farm on the slopes of Mt Elgon">
+        <defs>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop id="sky1" offset="0" stop-color="#8EC5E8"/>
+            <stop id="sky2" offset="1" stop-color="#DDEFF7"/>
+          </linearGradient>
+        </defs>
+        <rect width="400" height="240" fill="url(#skyGrad)"/>
+        <g id="stars" fill="#FFFFFF">
+          <circle cx="40" cy="30" r="1.2"/><circle cx="90" cy="18" r="1"/><circle cx="140" cy="42" r="1.3"/><circle cx="210" cy="22" r="1"/>
+          <circle cx="250" cy="55" r="1.2"/><circle cx="370" cy="24" r="1.1"/><circle cx="175" cy="70" r=".9"/><circle cx="60" cy="68" r="1"/>
+        </g>
+        <circle id="sun" cx="200" cy="38" r="16" fill="#FFD25E"/>
+        <g id="moon"><circle cx="322" cy="44" r="13" fill="#F2EED8"/><circle id="moonCut" cx="328" cy="39" r="11" fill="#0E1A33"/></g>
+        <path d="M6 168 L96 76 L118 90 L150 62 L222 132 L270 156 Z" fill="#7A988A"/>
+        <path d="M150 62 L163 75 L156 78 L146 70 Z" fill="#E9EEF0" opacity=".8"/>
+        <path d="M0 172 Q100 140 210 160 T400 150 V240 H0 Z" fill="#94AF81"/>
+        <path d="M0 120 C70 128 160 160 250 205 L250 240 L0 240 Z" fill="#6F914F"/>
+        <g id="bushes"></g>
+        <path d="M150 240 C200 214 250 202 300 198 S380 190 400 190 V240 Z" fill="#8CA866"/>
+        <g transform="translate(300 150)">
+          <rect x="0" y="18" width="70" height="40" fill="#C69E73"/>
+          <polygon points="-8,21 35,-4 78,21" fill="#8B9298"/>
+          <rect x="10" y="32" width="14" height="26" fill="#5A3B25"/>
+          <rect x="40" y="30" width="18" height="14" fill="#2D3337"/>
+          <rect x="46" y="34" width="6" height="9" rx="1" fill="#121517"/>
+          <rect id="phoneGlowDay" x="47" y="35" width="4" height="4" fill="#7FE0A7" opacity="0"/>
+        </g>
+        <g id="noor" transform="translate(285 207)">
+          <path d="M-4 0 L-3 -14 M4 0 L3 -14" stroke="#4A2E1C" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M-10 -12 L-6 -32 L6 -32 L10 -12 Z" fill="#B0362A"/>
+          <path d="M-9 -18 H9" stroke="#E2A72A" stroke-width="2"/>
+          <circle cx="0" cy="-38" r="6.2" fill="#6A3E25"/>
+          <path d="M-7 -37 Q0 -51 7 -37 Q0 -42 -7 -37 Z" fill="#E2A72A"/>
+          <g id="armsHome"><path d="M-6 -30 L-10 -18 M6 -30 L10 -18" stroke="#6A3E25" stroke-width="2.4" stroke-linecap="round"/></g>
+          <g id="armsField">
+            <path d="M-6 -30 L-9 -19" stroke="#6A3E25" stroke-width="2.4" stroke-linecap="round"/>
+            <g id="hoe">
+              <path d="M6 -30 L15 -23" stroke="#6A3E25" stroke-width="2.4" stroke-linecap="round"/>
+              <line x1="13" y1="-38" x2="19" y2="2" stroke="#7A5230" stroke-width="2"/>
+              <path d="M19 2 L28 0 L27 4 Z" fill="#8B9298"/>
+              <animateTransform id="hoeAnim" attributeName="transform" type="rotate" values="0 6 -30; -22 6 -30; 0 6 -30" dur="1.3s" repeatCount="indefinite"/>
+            </g>
+          </g>
+        </g>
+        <rect id="tint" width="400" height="240" fill="#0B1530" opacity="0"/>
+        <rect id="winGlow" x="340" y="180" width="18" height="14" fill="#FFD27A" opacity="0"/>
+        <rect id="phoneGlow" x="347" y="185" width="4" height="4" fill="#7FE0A7" opacity="0"/>
+        <g id="zzz" fill="#FFFFFF" font-family="Bricolage Grotesque, sans-serif" font-weight="800">
+          <text x="318" y="146" font-size="11">z</text><text x="328" y="134" font-size="14">z</text><text x="340" y="119" font-size="18">Z</text>
+        </g>
+        <g id="notif" transform="translate(378 162)">
+          <circle r="10" fill="#B0362A"/>
+          <text id="notifCount" y="4" text-anchor="middle" font-size="11" font-weight="700" fill="#FFFFFF" font-family="IBM Plex Sans, sans-serif">1</text>
+        </g>
+      </svg>
+    </div>
+    <div class="scene-caption">
+      <div class="clock" id="clock">Mon 19:00 <small id="where">At home</small></div>
+      <div id="sceneText"></div>
+    </div>
+    <div class="times" role="group" aria-label="Time of day">
+      <button class="timebtn" data-time="morning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18h16M7 18a5 5 0 0 1 10 0M12 5v3M5.6 9.6l1.8 1.4M18.4 9.6l-1.8 1.4"/></svg><b>Morning</b><small>06:30</small></button>
+      <button class="timebtn" data-time="day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><b>Day</b><small>11:00</small></button>
+      <button class="timebtn" data-time="evening"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 18h18M6 18a6 6 0 0 1 12 0M12 9v2M4 12l1.5 1M20 12l-1.5 1"/><path d="M8 21h8"/></svg><b>Evening</b><small>19:00</small></button>
+      <button class="timebtn" data-time="night"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><b>Night</b><small>23:00</small></button>
+    </div>
+    <div class="daynav"><button id="dayPrev" aria-label="Previous day">‹</button><span id="dayLabel">Day 1 · Monday</span><button id="dayNext" aria-label="Next day">›</button></div>
+  </section>
+
+  <!-- Phone -->
+  <section class="phone-col" aria-label="Noor's basic phone">
+    <div class="phone">
+      <div class="earpiece"></div>
+      <div class="screen">
+        <div class="status"><span><span class="sig">▂▄▆</span> 2G</span><span id="phoneClock">19:00</span><span>▮▮▮▯</span></div>
+        <div class="thread-head">Coffee Advisor <span id="shortcode">6789</span></div>
+        <div class="thread" id="thread" aria-live="polite"></div>
+        <form class="composer" id="composer">
+          <input id="msgInput" maxlength="160" autocomplete="off" placeholder="Write message…" aria-label="Message from Noor">
+          <button id="sendBtn" type="submit">Send</button>
+        </form>
+        <div class="away" id="away" hidden>
+          <div class="big" id="awayClock">11:00</div>
+          <div class="where" id="awayWhere">Phone at home · Noor is in the field</div>
+          <div class="pill" id="awayPill">No new messages</div>
+        </div>
+      </div>
+      <div class="softkeys">
+        <button class="sk" id="skLeft" type="button">Options</button>
+        <button class="dpad" id="okKey" type="button" aria-label="Send">OK</button>
+        <button class="sk" id="skBack" type="button">Clear</button>
+      </div>
+      <div class="keypad" id="keypad"></div>
+    </div>
+    <div class="event" id="event" hidden></div>
+    <div class="chips" id="chips">
+      <button class="chip" data-msg="The leaves on the upper trees have orange powder underneath">Orange powder under leaves</button>
+      <button class="chip" data-msg="Dark brown spots on the leaves and they dry and fall after the cold nights">Brown spots, leaves dry</button>
+      <button class="chip" data-msg="Something is wrong with my coffee trees">Something is wrong</button>
+      <button class="chip" data-msg="The berries have small holes">Holes in berries</button>
+    </div>
+    <div class="chips" id="chipsKw">
+      <button class="chip kw" data-msg="PRIX">PRIX</button>
+      <button class="chip kw" data-msg="AIDE">AIDE</button>
+      <button class="chip kw" data-msg="AGENT">AGENT</button>
+      <button class="chip kw" data-msg="1">1</button>
+      <button class="chip kw" data-msg="2">2</button>
+      <button class="chip kw" data-msg="3">3</button>
+    </div>
+    <div class="hint" id="hint">Type on your keyboard or tap a message. Noor can write in Luganda or English.</div>
+  </section>
+
+</main>
+
+<p class="footnote" id="footnote">Live demo: every message is processed by the real backend (translation, classifier, second opinion, decision). The time buttons move the server's simulated clock, so the automatic follow-up fires as it would three days later. In production the same SMS reach a basic phone through Africa's Talking, and the cooperative agent is alerted by SMS.</p>
+
+<script>
+
+/* ---------- configuration ---------- */
+const CONFIG = {
+  projectName: 'Coffee Advisor',                    // change to your project name
+  shortcode: '6789',
+  // Served by the backend (GET /demo) -> same origin. Opened as a file, or
+  // hosted apart (Lovable, Vercel) -> point it at the API with ?api=https://...
+  apiBase: location.protocol.startsWith('http') ? location.origin : 'http://localhost:8000',
+  pollMs: 1200,
+};
+const QS = new URLSearchParams(location.search);
+if (window.API_BASE) CONFIG.apiBase = window.API_BASE;
+if (QS.get('api')) CONFIG.apiBase = QS.get('api');
+/* Each visitor gets their own demo number (and so their own conversation and simulated clock). */
+CONFIG.phone = (() => {
+  try { const k='demoPhone'; let p=sessionStorage.getItem(k);
+        if(!p){ p='+256799'+String(Math.floor(Math.random()*1e6)).padStart(6,'0'); sessionStorage.setItem(k,p); } return p; }
+  catch(e){ return '+256799'+String(Math.floor(Math.random()*1e6)).padStart(6,'0'); }
+})();
+/* Backend API (FastAPI, app/demo_routes.py):
+   GET  /api/demo/state?phone=...
+        -> {now, messages:[{id, direction:'in'|'out', text, ts, text_en, label, proba, decision}],
+            events:[{id, kind:'agent_alert'|'followup', text, ts}]}
+           'in' = sent by Noor. On her messages, label/proba/decision are what the AI chain
+           decided: label in healthy|leaf_rust|phoma|other, decision in answer|clarify|escalate.
+           Keyword messages (PRIX, AIDE, AGENT, STOP) never reach the chain, so their fields are null.
+   POST /api/demo/send   {phone, text}       same processing as a real SMS
+   POST /api/demo/clock  {phone, day 0-6, slot morning|day|evening|night}
+                                             moves this visitor's clock, then runs anything now due
+   POST /api/demo/reset  {phone}             clears the conversation; the server's clock falls back
+                                             to day 0 morning, so the page re-sends its own slot */
+
+const TIMES = {
+  morning: {label:'Morning', clock:'06:30', away:false, where:'At home', text:'Noor is home before going to the slope. She can read and send messages.'},
+  day:     {label:'Day', clock:'11:00', away:true, where:'In the field', text:'Noor is working on the slope. Her phone stays at home, so new messages wait for her.'},
+  evening: {label:'Evening', clock:'19:00', away:false, where:'At home', text:'Noor is back home. She reads what arrived during the day and can reply.'},
+  night:   {label:'Night', clock:'23:00', away:true, where:'Asleep', text:'Noor is asleep. Messages wait until the morning.'},
+};
+const SKY = {
+  morning: {s1:'#F4C59C', s2:'#FCE8D1', sun:[62,108,'#F6AE5E'], tint:.06, glow:0},
+  day:     {s1:'#8EC5E8', s2:'#DDEFF7', sun:[200,38,'#FFD25E'], tint:0, glow:0},
+  evening: {s1:'#5A4A88', s2:'#F1A45A', sun:[346,122,'#EE8749'], tint:.24, glow:.95},
+  night:   {s1:'#0E1A33', s2:'#27365C', sun:null, tint:.52, glow:0},
+};
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+/* ---------- state ---------- */
+const S = {time:'evening', day:0, now:null, messages:[], seen:new Set(), seenEv:new Set(), unread:new Set(),
+  firstPoll:true, connected:false, everConnected:false, playing:false, stop:false};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- scene ---------- */
+function bez(t){const a=[0,120],b=[70,128],c=[160,160],d=[250,205],m=1-t;
+  return [m*m*m*a[0]+3*m*m*t*b[0]+3*m*t*t*c[0]+t*t*t*d[0], m*m*m*a[1]+3*m*m*t*b[1]+3*m*t*t*c[1]+t*t*t*d[1]];}
+const PTS = Array.from({length:101},(_,i)=>bez(i/100));
+function slopeY(x){let best=PTS[0];for(const p of PTS) if(Math.abs(p[0]-x)<Math.abs(best[0]-x)) best=p;return best[1];}
+(function drawBushes(){let h='';
+  for(let r=0;r<4;r++) for(let i=0;i<11;i++){
+    const x=8+i*24+(r%2)*12; if(x>238) continue;
+    const y=slopeY(x)+12+r*15; if(y>234) continue;
+    h+=`<circle cx="${x}" cy="${y.toFixed(1)}" r="7.5" fill="#2D5A39"/><circle cx="${x-2}" cy="${(y-2.6).toFixed(1)}" r="3" fill="#4B7E54"/>`;
+    if((i+r)%3===0) h+=`<circle cx="${x+3}" cy="${(y+1.5).toFixed(1)}" r="1.6" fill="#B0362A"/>`;
+  }
+  $('bushes').innerHTML=h;})();
+if(reduced){const a=$('hoeAnim'); a && a.remove();}
+
+const TZ='Africa/Kampala';
+function clockStr(){ if(S.now){ return new Date(S.now).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:TZ}); }
+  return TIMES[S.time].clock; }
+function dayStr(){ if(S.now){ return new Date(S.now).toLocaleDateString('en-GB',{weekday:'short',timeZone:TZ}); }
+  return DAYS[S.day].slice(0,3); }
+function unreadCount(){return S.messages.filter(m=>m.from==='service'&&S.unread.has(m.id)).length;}
+
+function renderScene(){
+  const T=TIMES[S.time], K=SKY[S.time];
+  $('sky1').setAttribute('stop-color',K.s1); $('sky2').setAttribute('stop-color',K.s2);
+  $('moonCut').setAttribute('fill',K.s1);
+  const sun=$('sun');
+  if(K.sun){sun.style.display='';sun.setAttribute('cx',K.sun[0]);sun.setAttribute('cy',K.sun[1]);sun.setAttribute('fill',K.sun[2]);} else sun.style.display='none';
+  $('moon').style.display=S.time==='night'?'':'none';
+  $('stars').style.display=S.time==='night'?'':'none';
+  $('tint').setAttribute('opacity',K.tint);
+  $('winGlow').setAttribute('opacity',K.glow);
+  const field=S.time==='day', asleep=S.time==='night';
+  const noor=$('noor');
+  noor.style.display=asleep?'none':'';
+  noor.setAttribute('transform',field?'translate(118 152)':'translate(285 207)');
+  $('armsHome').style.display=field?'none':'';
+  $('armsField').style.display=field?'':'none';
+  $('zzz').style.display=asleep?'':'none';
+  const n=unreadCount();
+  $('notif').style.display=n>0?'':'none';
+  $('notifCount').textContent=n;
+  $('phoneGlow').setAttribute('opacity',n>0?1:0);
+  $('clock').firstChild.nodeValue=`${dayStr()} ${clockStr()} `;
+  $('where').textContent=T.where;
+  $('sceneText').textContent=T.text;
+  $('dayLabel').textContent=`Day ${S.day+1} · ${DAYS[S.day]}`;
+  document.querySelectorAll('.timebtn').forEach(b=>b.setAttribute('aria-pressed',b.dataset.time===S.time));
+}
+
+/* ---------- phone ---------- */
+/* What the AI made of Noor's message, straight out of /api/demo/state. Worth
+   showing: it is the difference between a demo and a black box. */
+function verdict(m){
+  if(m.from!=='noor' || !m.decision) return '';           // keywords never reach the chain
+  const pct = m.proba ? ` \u00b7 ${Math.round(m.proba*100)}%` : '';
+  return `<span class="verdict ${esc(m.decision)}">${esc(m.label||'?')}${pct} \u00b7 ${esc(m.decision)}</span>`;
+}
+function renderThread(){
+  const T=TIMES[S.time], th=$('thread');
+  if(!S.messages.length){th.innerHTML='<div class="empty-thread">No messages yet.<br>Noor can describe what she sees on her coffee, or send PRIX for a reference price.</div>';}
+  else th.innerHTML=S.messages.map(m=>`<div class="bubble ${m.from}${m.fresh?' fresh':''}">${esc(m.text)}<span class="meta">${esc(m.ts)}</span></div>${verdict(m)}`).join('');
+  th.scrollTop=th.scrollHeight;
+  S.messages.forEach(m=>m.fresh=false);
+  const last=S.messages[S.messages.length-1];
+  if(S.connected&&last&&last.from==='noor') th.insertAdjacentHTML('beforeend','<div class="typing"><span>•</span><span>•</span><span>•</span></div>'), th.scrollTop=th.scrollHeight;
+  const away=T.away;
+  $('away').hidden=!away;
+  $('awayClock').textContent=clockStr();
+  $('awayWhere').textContent=S.time==='night'?'Phone at home · Noor is asleep':'Phone at home · Noor is in the field';
+  const n=unreadCount();
+  $('awayPill').textContent=n?`${n} new message${n>1?'s':''}`:'No new messages';
+  $('awayPill').className='pill'+(n?'':' none');
+  const off=away||!S.connected; $('msgInput').disabled=off; $('sendBtn').disabled=off;
+  $('msgInput').placeholder=away?'Noor is away from her phone':'Write message…';
+  document.querySelectorAll('.chips .chip').forEach(c=>c.disabled=off||S.playing);
+  $('phoneClock').textContent=clockStr();
+  $('hint').textContent=!S.connected?'Waiting for the backend…':away?'Noor cannot reply now. Switch to Morning or Evening.':'Type on your keyboard or tap a message. Noor can write in Luganda or English.';
+}
+function renderAll(){renderScene();renderThread();}
+
+(function buildKeypad(){
+  const keys=[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','␣'],['#','']];
+  $('keypad').innerHTML=keys.map(([k,l])=>`<button class="key" type="button" data-k="${k}"><b>${k}</b><small>${l||'&nbsp;'}</small></button>`).join('');
+  $('keypad').addEventListener('click',e=>{const b=e.target.closest('.key');if(!b||$('msgInput').disabled)return;
+    $('msgInput').value+=(b.dataset.k==='0'&&$('msgInput').value?' ':b.dataset.k);$('msgInput').focus();});
+})();
+
+
+/* ---------- backend ---------- */
+async function api(path, opts={}){
+  const r = await fetch(CONFIG.apiBase.replace(/\/$/,'')+path, {headers:{'Content-Type':'application/json'}, ...opts});
+  if(!r.ok) throw new Error(r.status); return r.json();
+}
+const post = (path, body) => api(path, {method:'POST', body:JSON.stringify(body||{})});
+function setBadge(kind,text){const b=$('modeBadge');b.className='badge'+(kind?' '+kind:'');b.textContent=text;}
+let eventTimer=null;
+function showEvent(text, ok){const e=$('event'); e.textContent=text; e.className='event'+(ok?' ok':''); e.hidden=false;
+  clearTimeout(eventTimer); eventTimer=setTimeout(()=>{e.hidden=true;},6000);}
+function fmtTs(ts){ if(!ts) return ''; const d=new Date(ts); if(isNaN(d)) return String(ts);
+  return d.toLocaleString('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit',timeZone:TZ}); }
+async function poll(){
+  try{
+    const d = await api(`/api/demo/state?phone=${encodeURIComponent(CONFIG.phone)}`);
+    S.connected=true; S.everConnected=true; S.now=d.now||null;
+    const away=TIMES[S.time].away;
+    const fresh=new Set(S.messages.filter(m=>m.fresh).map(m=>m.id));
+    const msgs=(d.messages||[]).map(m=>({id:String(m.id), from:m.direction==='in'?'noor':'service', text:m.text, ts:fmtTs(m.ts),
+      label:m.label, proba:m.proba, decision:m.decision}));
+    for(const m of msgs){
+      if(fresh.has(m.id)) m.fresh=true;
+      if(S.seen.has(m.id)) continue; S.seen.add(m.id);
+      if(S.firstPoll) continue;
+      if(m.from==='service'){ if(away) S.unread.add(m.id); else m.fresh=true; }
+    }
+    for(const e of (d.events||[])){
+      const id=String(e.id); if(S.seenEv.has(id)) continue; S.seenEv.add(id);
+      if(!S.firstPoll) showEvent(e.text, e.kind!=='agent_alert');
+    }
+    S.messages=msgs; S.firstPoll=false;
+    setBadge('live','Live · connected to the backend'); renderAll();
+  }catch(err){
+    S.connected=false;
+    setBadge('err', S.everConnected?'Backend unreachable, retrying…':'Waking up the server, this can take 1–2 minutes…');
+    renderThread();
+  }
+}
+const serviceCount = () => S.messages.filter(m=>m.from==='service').length;
+async function waitForReply(n0, timeout=25000){
+  const t0=Date.now();
+  while(Date.now()-t0<timeout && !S.stop){ await poll(); if(serviceCount()>n0) return true; await sleep(700); }
+  return false;
+}
+
+/* ---------- actions ---------- */
+async function sendFromNoor(text){
+  text=String(text||'').trim(); if(!text||TIMES[S.time].away||!S.connected) return;
+  try{ await post('/api/demo/send',{phone:CONFIG.phone,text}); }catch(e){ setBadge('err','Send failed'); }
+  await poll();
+}
+async function setTime(t, day){
+  if(day!=null) S.day=Math.max(0,Math.min(6,day));
+  S.time=t;
+  if(!TIMES[t].away){ S.messages.forEach(m=>{ if(S.unread.has(m.id)) m.fresh=true; }); S.unread.clear(); }
+  renderAll();
+  try{ const r=await post('/api/demo/clock',{phone:CONFIG.phone, day:S.day, slot:t}); S.now=r.now||S.now; }catch(e){ setBadge('err','Clock update failed'); }
+  await poll();
+}
+async function reset(){
+  try{ await post('/api/demo/reset',{phone:CONFIG.phone}); }catch(e){ setBadge('err','Reset failed'); }
+  S.messages=[]; S.seen=new Set(); S.seenEv=new Set(); S.unread=new Set(); S.firstPoll=true; $('event').hidden=true;
+  await setTime('evening',0);
+}
+
+/* ---------- scenario (real backend, real model outputs) ---------- */
+async function typeSend(text){
+  const inp=$('msgInput'); inp.value='';
+  for(const ch of text){ if(S.stop) return; inp.value+=ch; await sleep(reduced?0:30); }
+  await sleep(250); inp.value='';
+  const n0=serviceCount(); await sendFromNoor(text); await waitForReply(n0);
+}
+const SCRIPT=[
+  async()=>{ await sleep(1200); },
+  async()=>{ await typeSend('The leaves on the upper trees have orange powder underneath'); await sleep(2200); },
+  async()=>{ await setTime('day',1); await sleep(3000); },
+  async()=>{ const n0=serviceCount(); await setTime('evening',3); await waitForReply(n0,15000); await sleep(2000); await typeSend('3'); await sleep(2500); },
+  async()=>{ await setTime('evening',4); await sleep(1000); await typeSend('Something is wrong with my coffee trees'); await sleep(1800); await typeSend('On the leaves, orange powder'); await sleep(2500); },
+  async()=>{ await typeSend('The berries have small holes'); await sleep(2500); },
+  async()=>{ await setTime('morning',5); await sleep(1200); await typeSend('PRIX'); await sleep(2000); },
+];
+async function play(){
+  if(S.playing){ S.stop=true; return; }
+  if(!S.connected) return;
+  S.playing=true; S.stop=false; $('playBtn').textContent='Stop'; renderThread();
+  await reset();
+  for(const step of SCRIPT){ if(S.stop) break; await step(); }
+  S.playing=false; S.stop=false; $('playBtn').textContent='Play scenario'; renderThread();
+}
+
+/* ---------- wiring ---------- */
+$('projectName').textContent=CONFIG.projectName;
+$('shortcode').textContent=CONFIG.shortcode;
+document.querySelector('.thread-head').firstChild.nodeValue=CONFIG.projectName+' ';
+$('composer').addEventListener('submit',e=>{e.preventDefault();const v=$('msgInput').value;$('msgInput').value='';sendFromNoor(v);});
+$('okKey').addEventListener('click',()=>$('composer').requestSubmit());
+$('skBack').addEventListener('click',()=>{$('msgInput').value='';});
+$('skLeft').addEventListener('click',()=>$('msgInput').focus());
+['chips','chipsKw'].forEach(id=>$(id).addEventListener('click',e=>{const c=e.target.closest('.chip');if(c&&!c.disabled) sendFromNoor(c.dataset.msg);}));
+document.querySelectorAll('.timebtn').forEach(b=>b.addEventListener('click',()=>setTime(b.dataset.time)));
+$('dayPrev').addEventListener('click',()=>setTime(S.time,S.day-1));
+$('dayNext').addEventListener('click',()=>setTime(S.time,S.day+1));
+$('playBtn').addEventListener('click',play);
+$('resetBtn').addEventListener('click',()=>{ if(!S.playing) reset(); });
+renderAll();
+/* Announce the slot the page is showing before anything else. The server's own
+   default is day 0 morning, so without this a diagnosis is stamped 08:00 while
+   the screen reads 19:00, and the day+3 follow-up lands a slot early. */
+setTime(S.time, S.day);
+setInterval(()=>{ if(!S.playing) poll(); }, CONFIG.pollMs);
+
+</script>
+</body>
+</html>
