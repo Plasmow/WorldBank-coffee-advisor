@@ -2,22 +2,45 @@ services:
   - type: web
     name: coffee-advisor
     runtime: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # The full chain peaks at ~1.4 GB (NLLB int8 + e5-small + torch):
+    # the 512 MB plans cannot hold it. Standard = 2 GB.
+    plan: standard
+    # Models are downloaded here, at build time, into the project folder that
+    # Render ships to the runtime: a boot only loads them from disk.
+    buildCommand: pip install -r requirements-ai.txt && python scripts/fetch_models.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: "3.12.14"
-      # The free disk is wiped on every deploy; demo conversations are
-      # disposable anyway, and each visitor starts fresh.
+        value: "3.12.8"
+      - key: HF_HOME
+        value: /opt/render/project/src/.hf_cache
+      - key: NLLB_CT2_REPO
+        value: JustFrederik/nllb-200-distilled-600M-ct2-int8
+      - key: USE_REAL_AI
+        value: "1"
+      # 0: messages to real numbers really go out through Africa's Talking.
+      # Demo numbers (+256799...) never do, whatever this says.
+      - key: DEMO_MODE
+        value: "0"
+      # Second opinion: an Ollama server reachable from Render (e.g. a laptop
+      # behind a tunnel). Unset or unreachable -> the classifier answers alone.
+      - key: USE_LLM
+        value: "1"
+      - key: OLLAMA_HOST
+        sync: false
+      - key: OLLAMA_TIMEOUT
+        value: "30"
+      # The disk is wiped on every deploy; demo conversations are disposable.
       - key: DB_PATH
         value: /tmp/coffee.db
       - key: AT_USERNAME
-        sync: false
+        value: sandbox
       - key: AT_API_KEY
         sync: false
       - key: AGENT_PHONE
         sync: false
-      - key: FRONTEND_ORIGIN
+      - key: DEMO_LIVE_PHONE
         sync: false
+      - key: FRONTEND_ORIGIN
+        value: "*"

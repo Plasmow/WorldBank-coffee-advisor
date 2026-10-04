@@ -2,36 +2,64 @@
 
 import logging
 import os
+import re
+import threading
 import unicodedata
+from collections import defaultdict
 
 from app import at_client, clock, content, db, scheduler
+from ai.lang import detect_lang  # pure Python, no model
 from app.analysis import analyze
 
 log = logging.getLogger(__name__)
 
 MAX_IN = 1000  # a gateway can hand us anything; the classifier does not need more
 
-# Both spellings accepted: the spec is written in French but Noor's handset
-# sends English. Two extra strings beat getting this wrong on stage.
+# English, French (the spec) and Luganda spellings. A few extra strings beat
+# getting this wrong on stage.
 KEYWORDS = {
-    "PRICE": ("price", "prices", "prix"),
-    "HELP": ("help", "aide"),
-    "AGENT": ("agent",),
-    "STOP": ("stop",),
-    "START": ("start",),
+    "PRICE": ("price", "prices", "prix", "bbeeyi", "beeyi"),
+    "HELP": ("help", "aide", "yamba", "nnyamba"),
+    "AGENT": ("agent", "omulimisa"),
+    "STOP": ("stop", "komya"),
+    "START": ("start", "tandika"),
 }
+# Luganda keyword -> reply in Luganda; anything else keeps the farmer's language.
+LG_KEYWORDS = {"bbeeyi", "beeyi", "yamba", "nnyamba", "omulimisa", "komya", "tandika"}
+
+# A question about prices in free text gets prices.json, never the classifier.
+# Checked on what she wrote and again on its English translation.
+PRICE_QUESTION = re.compile(
+    r"\b(price|prices|prix|cost|costs|sell|selling|market rate|how much|pay for"
+    r"|bbeeyi|beeyi|ssente mmeka|emiwendo|bagula|tunda)\b",
+    re.IGNORECASE,
+)
 FOLLOWUP_ANSWERS = {"1": "better", "2": "same", "3": "worse"}
+
+
+def _norm(text):
+    w = unicodedata.normalize("NFKD", text.strip().lower())
+    return w.encode("ascii", "ignore").decode().strip(" .!?")
 
 
 def keyword(text):
     """Exact match on the whole message, so "help my coffee is dying" is a
     symptom report and not the HELP menu."""
-    w = unicodedata.normalize("NFKD", text.strip().lower())
-    w = w.encode("ascii", "ignore").decode()
+    w = _norm(text)
     for name, words in KEYWORDS.items():
         if w in words:
             return name
     return None
+
+
+def is_price_question(text):
+    return bool(PRICE_QUESTION.search(text or ""))
+
+
+# One conversation at a time per phone. Two SMS sent back to back reach the
+# webhook together; processed in parallel, both would see "not welcomed yet"
+# and both would answer a clarifying question that was asked only once.
+_phone_locks = defaultdict(threading.Lock)
 
 
 def handle_incoming(phone, text):
@@ -40,10 +68,26 @@ def handle_incoming(phone, text):
     text = (text or "").strip()[:MAX_IN]
     if not phone or not text:
         return []
+    with _phone_locks[phone]:
+        return _handle(phone, text)
 
+
+def _handle(phone, text):
     ts = clock.now(phone)
     row, _ = db.user(phone)
     message_id = db.record(phone, "in", text, ts)
+
+    kw = keyword(text)
+    # Reply in the language she writes in. A keyword says little about that,
+    # except a Luganda one; "1"/"2"/"3" says nothing and keeps the last one.
+    lang = row["lang"]
+    if kw:
+        lang = "lg" if _norm(text) in LG_KEYWORDS else lang
+    elif not (row["pending_kind"] == "followup" and text.strip() in FOLLOWUP_ANSWERS):
+        lang = detect_lang(text, default=lang)
+    if lang != row["lang"]:
+        db.set_user(phone, lang=lang)
+        row = db.get_user(phone)
 
     sent = []
 
@@ -51,8 +95,6 @@ def handle_incoming(phone, text):
         msg = key_or_text if literal else content.t(key_or_text, row["lang"])
         if msg and db.send(phone, msg, ts):
             sent.append(msg)
-
-    kw = keyword(text)
 
     if kw == "STOP":
         # Acknowledge first, then mute: the ack itself must not be swallowed.
@@ -75,7 +117,7 @@ def handle_incoming(phone, text):
         say("welcome")
         db.set_user(phone, welcomed=1)
 
-    if kw == "PRICE":
+    if kw == "PRICE" or (kw is None and is_price_question(text)):
         say(content.prices_text(row["lang"]), literal=True)  # no AI on this path
         return sent
 
@@ -118,6 +160,12 @@ def handle_incoming(phone, text):
 def _respond(phone, ts, say, result, original):
     decision = result.get("decision")
     template = result.get("template_id")
+
+    # The translation can reveal a price question the raw text hid
+    # ("Emmwanyi zigula ssente ki?" -> "How much does coffee sell for?").
+    if result.get("label") == "other" and is_price_question(result.get("text_en")):
+        say(content.prices_text(db.get_user(phone)["lang"]), literal=True)
+        return
 
     if decision == "clarify":
         db.set_user(phone, pending_kind="clarify", pending_text=original)

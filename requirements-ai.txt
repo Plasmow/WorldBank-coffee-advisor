@@ -1,6 +1,12 @@
-# Add these only when USE_REAL_AI=1. 105 MB, and no torch: CTranslate2 runs
-# the translation model on its own, transformers is here for the tokenizer.
+# The full chain (USE_REAL_AI=1): NLLB on CTranslate2, e5-small on CPU torch,
+# Ollama client for the second opinion. What Render installs.
 -r requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+numpy==2.2.6
 ctranslate2==4.8.2
 transformers==5.18.0
+tokenizers==0.23.2
 sentencepiece==0.2.2
+huggingface_hub==1.33.0
+torch==2.14.1
+ollama==0.6.3

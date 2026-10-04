@@ -19,17 +19,17 @@ def keyword_chain(monkeypatch):
 
 def test_healthy_answers_with_the_healthy_template():
     r = analyze("my coffee looks healthy, no problem")
-    assert (r["decision"], r["label"], r["template_id"]) == ("answer", "healthy", "Healthy")
+    assert (r["decision"], r["label"], r["template_id"]) == ("answer", "healthy", "adv_healthy")
 
 
 def test_rust_answers_with_the_rust_template():
     r = analyze("orange powder under the leaves")
-    assert (r["decision"], r["label"], r["template_id"]) == ("answer", "leaf_rust", "Rust")
+    assert (r["decision"], r["label"], r["template_id"]) == ("answer", "leaf_rust", "adv_leaf_rust")
 
 
 def test_phoma_answers_with_the_phoma_template():
     r = analyze("black lesions and dieback on my coffee")
-    assert (r["decision"], r["label"], r["template_id"]) == ("answer", "phoma", "Phoma")
+    assert (r["decision"], r["label"], r["template_id"]) == ("answer", "phoma", "adv_phoma")
 
 
 def test_not_understood_asks_one_question():

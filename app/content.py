@@ -12,7 +12,7 @@ def _load(name):
     if name not in _cache:
         path = ROOT / "data" / name
         try:
-            _cache[name] = json.loads(path.read_text() or "{}")
+            _cache[name] = json.loads(path.read_text(encoding="utf-8") or "{}")
         except (OSError, json.JSONDecodeError):
             _cache[name] = {}
     return _cache[name]
@@ -27,13 +27,23 @@ def t(key, lang="en"):
     return v or ""
 
 
+def _ugx(n):
+    return f"{int(n):,}"
+
+
 def prices_text(lang="en"):
+    """prices.json as it is, in a fixed wrapper. No AI on this path."""
     p = _load("prices.json")
     rows = p.get("prices") or []
     if not rows:
         return t("prices_unavailable", lang)
-    body = ", ".join(f"{r['grade']} {r['ugx_per_kg']}" for r in rows)
-    return t("prices", lang).format(date=p.get("date", ""), body=body)
+    parts = []
+    # Noor sells arabica parchment: the dearest grade first.
+    for r in sorted(rows, key=lambda r: -r.get("ugx_per_kg", 0)):
+        lo, hi = r.get("ugx_per_kg_min"), r.get("ugx_per_kg_max")
+        amount = f"{_ugx(lo)}-{_ugx(hi)}" if lo and hi else _ugx(r["ugx_per_kg"])
+        parts.append(f"{r['grade']} {amount}")
+    return t("prices", lang).format(date=p.get("date", ""), body="; ".join(parts))
 
 
 def reload():
