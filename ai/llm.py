@@ -7,8 +7,6 @@ import json
 import os
 from functools import lru_cache
 
-import ollama
-
 MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 TIMEOUT_S = float(os.getenv("OLLAMA_TIMEOUT", "10"))
 
@@ -36,7 +34,12 @@ SCHEMA = {
 
 
 @lru_cache(maxsize=1)
-def get_client() -> ollama.Client:
+def get_client():
+    # Imported here, not at module level: without the package llm_predict
+    # catches the error and returns label=None, which is exactly the
+    # "Ollama indisponible" fallback documented below.
+    import ollama
+
     # OLLAMA_HOST est lu automatiquement par le client
     return ollama.Client(timeout=TIMEOUT_S)
 
