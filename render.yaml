@@ -42,5 +42,8 @@ services:
         sync: false
       - key: DEMO_LIVE_PHONE
         sync: false
+      # English subtitles on the demo page. Unset -> Google's free endpoint.
+      - key: GOOGLE_TRANSLATE_API_KEY
+        sync: false
       - key: FRONTEND_ORIGIN
         value: "*"

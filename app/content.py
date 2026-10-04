@@ -46,6 +46,21 @@ def prices_text(lang="en"):
     return t("prices", lang).format(date=p.get("date", ""), body="; ".join(parts))
 
 
+def english_of(text):
+    """The exact English of a message we sent, or None if we did not send it.
+
+    Every outgoing message comes from templates.json (or the price wrapper),
+    so its English is known: no translation service needed, and no mistakes.
+    """
+    for lang in ("lg", "en"):
+        if text == prices_text(lang):
+            return prices_text("en")
+    for v in _load("templates.json").values():
+        if isinstance(v, dict) and text in (v.get("lg"), v.get("en")):
+            return v.get("en")
+    return None
+
+
 def reload():
     _cache.clear()
 

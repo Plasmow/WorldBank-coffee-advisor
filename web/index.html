@@ -42,7 +42,7 @@ h1,h2,h3{font-family:var(--f-display);margin:0}
 .badge.err{background:var(--cherry-soft);color:var(--cherry)}
 
 /* grid */
-main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content:center;gap:40px;padding:4px 24px 32px;align-items:start;max-width:1200px;margin:0 auto}
+main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) auto;justify-content:center;gap:28px;padding:4px 24px 32px;align-items:start;max-width:1280px;margin:0 auto}
 @media (max-width:980px){main{grid-template-columns:1fr;justify-items:stretch}.phone-col{justify-self:center}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:14px;min-width:0}
 .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -123,6 +123,18 @@ main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content
 .howto b{color:var(--ink)}
 .howto em{font-style:normal;font-weight:600;color:var(--ink)}
 @media (max-width:980px){.howto{margin:0 24px 18px}}
+/* English subtitles for the judges, next to the phone */
+.tr-card{align-self:stretch;max-height:640px;grid-template-rows:auto 1fr auto}
+.tr-thread{overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.tr-empty{margin:auto;text-align:center;color:var(--muted);font-size:12px}
+.tr-msg{border-left:3px solid var(--line);padding:2px 0 2px 9px}
+.tr-msg.noor{border-color:var(--leaf)}
+.tr-who{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.tr-who b{color:var(--ink);font-weight:600}
+.tr-lang{background:var(--slate-soft);color:var(--slate);border-radius:999px;padding:0 6px}
+.tr-en{font-size:13px}
+.tr-en.pending{color:var(--muted);font-style:italic}
+.tr-foot{font-size:11px;color:var(--muted)}
 .footnote{max-width:1200px;margin:0 auto;padding:0 24px 28px;color:var(--muted);font-size:12px}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -223,6 +235,16 @@ main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content
       <button class="timebtn" data-time="night"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><b>Night</b><small>23:00</small></button>
     </div>
     <div class="daynav"><button id="dayPrev" aria-label="Previous day">‹</button><span id="dayLabel">Day 1 · Monday</span><button id="dayNext" aria-label="Next day">›</button></div>
+  </section>
+
+  <!-- English subtitles for the judges -->
+  <section class="card tr-card" aria-labelledby="trTitle">
+    <div>
+      <div class="eyebrow">For the judges · live translation</div>
+      <h2 id="trTitle">The conversation in English</h2>
+    </div>
+    <div class="tr-thread" id="trThread" aria-live="polite"></div>
+    <div class="tr-foot">For viewers only: Noor sees the phone, in Luganda. Our replies show their exact English; Noor's messages are translated by Google, or by our own NLLB model when Google is unavailable.</div>
   </section>
 
   <!-- Phone -->
@@ -450,6 +472,7 @@ async function poll(){
     }
     S.messages=msgs; S.firstPoll=false;
     setBadge('live','Live · connected to the backend'); renderAll();
+    refreshEnglish();
   }catch(err){
     S.connected=false;
     setBadge('err', S.everConnected?'Backend unreachable, retrying…':'Waking up the server, this can take 1–2 minutes…');
@@ -461,6 +484,40 @@ async function waitForReply(n0, timeout=25000){
   const t0=Date.now();
   while(Date.now()-t0<timeout && !S.stop){ await poll(); if(serviceCount()>n0) return true; await sleep(700); }
   return false;
+}
+
+/* ---------- English subtitles (Google Translate, via GET /api/demo/english) ----------
+   Fetched only when the conversation changes or a translation is still missing,
+   so the 1.2 s poll does not turn into a stream of calls to Google. */
+const EN = {key:'', busy:false, rows:[], lastTry:0};
+const VIA = {template:'exact', google:'Google', nllb:'NLLB'};
+const LANG_NAMES = {lg:'Luganda', en:'English', sw:'Swahili', fr:'French'};
+function renderEnglish(){
+  const th=$('trThread');
+  if(!EN.rows.length){ th.innerHTML='<div class="tr-empty">Messages will appear here in English as Noor and the advisor exchange them.</div>'; return; }
+  th.innerHTML=EN.rows.map(m=>{
+    const noor=m.direction==='in', via=VIA[m.via]?` · ${VIA[m.via]}`:'';
+    const src=m.src&&m.src!=='en'?`<span class="tr-lang">${esc(LANG_NAMES[m.src]||m.src)} → English${via}</span>`:'';
+    const body=m.en==null?`<div class="tr-en pending">translating…</div>`:`<div class="tr-en">${esc(m.en)}</div>`;
+    return `<div class="tr-msg ${noor?'noor':'service'}"><div class="tr-who"><b>${noor?'Noor':'Coffee Advisor'}</b>${src}</div>${body}</div>`;
+  }).join('');
+  th.scrollTop=th.scrollHeight;
+}
+async function refreshEnglish(){
+  const key=CONFIG.phone+'|'+S.messages.map(m=>m.id).join(',');
+  const missing=EN.rows.some(m=>m.en==null);
+  // Same conversation: only retry a missing line, and not more than every 5 s.
+  if(EN.busy || (key===EN.key && (!missing || Date.now()-EN.lastTry<5000))) return;
+  EN.busy=true; EN.lastTry=Date.now();
+  // Show the new messages at once, as "translating...", then fill them in.
+  const known=new Map(EN.rows.map(m=>[String(m.id),m]));
+  EN.rows=S.messages.map(m=>known.get(m.id)||{id:m.id, direction:m.from==='noor'?'in':'out', text:m.text, en:null});
+  renderEnglish();
+  try{
+    const d=await api(`/api/demo/english?phone=${encodeURIComponent(CONFIG.phone)}`);
+    EN.rows=d.messages||[]; EN.key=key;
+  }catch(e){ /* keep what we have; the next poll retries */ }
+  EN.busy=false; renderEnglish();
 }
 
 /* ---------- actions ---------- */
@@ -480,6 +537,7 @@ async function setTime(t, day){
 async function reset(){
   try{ await post('/api/demo/reset',{phone:CONFIG.phone}); }catch(e){ setBadge('err','Reset failed'); }
   S.messages=[]; S.seen=new Set(); S.seenEv=new Set(); S.unread=new Set(); S.firstPoll=true; $('event').hidden=true;
+  EN.rows=[]; EN.key=''; renderEnglish();
   await setTime('evening',0);
 }
 
@@ -559,6 +617,7 @@ $('playBtn').addEventListener('click',play);
 $('liveToggle').addEventListener('change',e=>setLive(e.target.checked));
 $('resetBtn').addEventListener('click',()=>{ if(!S.playing) reset(); });
 renderAll();
+renderEnglish();
 loadConfig();
 /* Announce the slot the page is showing before anything else. The server's own
    default is day 0 morning, so without this a diagnosis is stamped 08:00 while
