@@ -129,11 +129,11 @@ def test_the_question_chosen_by_the_chain_is_the_one_sent(client, monkeypatch):
     def unsure(text, clarify_answer=None):
         return {"lang": "en", "text_en": text, "label": "phoma", "proba": 0.5,
                 "llm_label": "leaf_rust", "decision": "clarify",
-                "template_id": "clarify_rust_phoma", "reason": "disagree"}
+                "template_id": "ask_powder_or_dark_patches", "reason": "disagree"}
 
     monkeypatch.setattr(app.router, "analyze", unsure)
     r = send(client, "+256799000320", "brown and orange marks on my leaves")
-    assert TEMPLATES["clarify_rust_phoma"]["en"] in r["replies"]
+    assert TEMPLATES["ask_powder_or_dark_patches"]["en"] in r["replies"]
 
 
 # ---------- Africa's Talking endpoint ----------

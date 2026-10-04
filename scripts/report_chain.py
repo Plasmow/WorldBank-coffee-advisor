@@ -3,10 +3,10 @@
 Not a pytest file (pytest only collects test_*.py): it loads the real translation
 model and talks to Ollama, and prints a report a human reads.
 
-    python -m ai.test              # everything
-    python -m ai.test translate    # Luganda -> English only
-    python -m ai.test analyze      # full chain only
-    python -m ai.test templates    # English -> Luganda on the SMS templates
+    python scripts/report_chain.py              # everything
+    python scripts/report_chain.py translate    # Luganda -> English only
+    python scripts/report_chain.py analyze      # full chain only
+    python scripts/report_chain.py templates    # English -> Luganda on the SMS templates
 
 The Luganda cases are written the way a farmer on Mount Elgon would text:
 "emmwanyi" is the coffee plant ("kaawa" is the drink), short, no punctuation.

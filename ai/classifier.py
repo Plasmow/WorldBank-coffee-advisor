@@ -29,7 +29,7 @@ def _threshold():
     try:
         return float(json.loads(LABELS_JSON.read_text(encoding="utf-8"))["threshold"])
     except Exception:
-        return 0.8
+        return 0.6
 
 
 THRESHOLD = float(os.environ.get("CLASSIFIER_THRESHOLD") or _threshold())

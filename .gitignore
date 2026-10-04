@@ -231,3 +231,4 @@ model/nllb-ct2-int8/
 uv.lock
 .hf_cache/
 model/opus-lg-en-ct2/
+*.errors.jsonl

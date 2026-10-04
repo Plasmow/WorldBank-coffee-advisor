@@ -15,23 +15,38 @@
     "lg_verified": false
   },
   "clarify": {
-    "en": "To be sure: are the marks on the leaves or on the berries, and what colour are they?",
-    "lg": "Okukakasa: obubonero buli ku bikoola oba ku bibala, era bya langi ki?",
+    "en": "Please tell me more: which part of the coffee plant is affected, and what do you see on it?",
+    "lg": "Nsaba onnyongere okunnyonnyola: kitundu ki eky'emmwanyi ekirwadde, era kiki ky'olabako?",
     "lg_verified": false
   },
-  "clarify_where": {
-    "en": "Where do you see the problem: on the leaves, the berries, the stems or the roots?",
+  "ask_plant_part": {
+    "en": "Where is the problem: on the leaves, the berries, the stems or the roots?",
     "lg": "Ekizibu okirabira wa: ku bikoola, ku bibala, ku bikolo oba ku mirandira?",
     "lg_verified": false
   },
-  "clarify_colour": {
-    "en": "What do you see on the leaves: orange powder underneath, black or brown patches, or no marks?",
-    "lg": "Kiki ky'olaba ku bikoola: obuwunga bwa kacungwa wansi, amabala amaddugavu oba ag'ekitaka, oba tewali kabonero?",
+  "ask_leaf_look": {
+    "en": "What do you see on the leaves: orange powder underneath, dark brown or black patches, or no marks?",
+    "lg": "Kiki ky'olaba ku bikoola: obuwunga bwa kacungwa wansi, amabala ag'ekitaka oba amaddugavu, oba tewali kabonero?",
     "lg_verified": false
   },
-  "clarify_rust_phoma": {
-    "en": "Is it orange powder under the leaves, or are the tips of young leaves turning black and dry?",
-    "lg": "Buwunga bwa kacungwa wansi w'ebikoola, oba ensonda z'ebikoola ebito zifuuka nzirugavu ne zikala?",
+  "ask_powder_or_dark_patches": {
+    "en": "Do the spots have orange powder under the leaf, or are they dark brown, dry and papery?",
+    "lg": "Amabala galina obuwunga bwa kacungwa wansi w'ekikoola, oba ga kitaka ekiddugavu, gakalu ng'olupapula?",
+    "lg_verified": false
+  },
+  "ask_yellow_pattern": {
+    "en": "Is the yellow only in patches with orange powder underneath, or is the whole leaf turning yellow?",
+    "lg": "Kyenvu kiri mu mabala gokka nga wansi waliwo obuwunga bwa kacungwa, oba ekikoola kyonna kifuuka kyenvu?",
+    "lg_verified": false
+  },
+  "ask_black_tips_cold": {
+    "en": "Are the tips of young leaves and shoots turning black and dying, mostly after cold, wet nights?",
+    "lg": "Ensonda z'ebikoola ebito n'amatabi amato zifuuka nzirugavu ne zifa, naddala oluvannyuma lw'ekiro eky'empewo n'enkuba?",
+    "lg_verified": false
+  },
+  "ask_any_marks": {
+    "en": "Do you see any spots, powder or dry patches on the leaves, or are they all green and shiny?",
+    "lg": "Olaba amabala, obuwunga oba ebitundu ebikalu ku bikoola, oba byonna bya kiragala era bimasamasa?",
     "lg_verified": false
   },
   "unsure": {

@@ -14,14 +14,14 @@ def test_the_file_fills_gaps_but_never_overrides_the_environment(tmp_path, monke
         "AT_API_KEY=from-the-file\n"
         "AT_SHORTCODE=6789\n"
     )
-    monkeypatch.setenv("AT_API_KEY", "from-replit-secrets")
+    monkeypatch.setenv("AT_API_KEY", "from-host-secrets")
     monkeypatch.delenv("AT_SHORTCODE", raising=False)
 
     from app.main import load_env
 
     load_env(env_file)
 
-    assert os.environ["AT_API_KEY"] == "from-replit-secrets"  # the real one wins
+    assert os.environ["AT_API_KEY"] == "from-host-secrets"  # the real one wins
     assert os.environ["AT_SHORTCODE"] == "6789"               # the file fills the gap
 
 

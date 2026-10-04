@@ -1,12 +1,27 @@
-# WorldBankAgriculture
+# Coffee Advisor
 
-Offline Small AI assistant helping smallholder coffee farmers diagnose crop problems and make better decisions, built for basic phones, low connectivity and local languages.
+**An SMS crop-disease advisor for smallholder coffee farmers on basic phones, in Luganda and English.**
 
-## Run it locally
+Built for the Hack-Nation × World Bank challenge *Small AI for Development* (Agriculture track).
 
-`uv` and `--reload` are for a laptop. A host has neither: see **Deploy** for
-the command servers actually run.
+Noor grows arabica on Mount Elgon, Uganda. She has a basic phone, no data plan,
+and speaks Luganda. She texts what she sees on her plants; Coffee Advisor
+answers by SMS with vetted advice, asks one question when the message is
+unclear, and hands her over to a human extension agent whenever it is not sure.
 
+- **Small AI only**: a 600M-parameter translator quantized to int8, a 33M-parameter
+  embedder with a calibrated linear head, and an optional 3B local LLM as a
+  second opinion. Everything runs on a CPU, no cloud LLM ever talks to the farmer.
+- **No generated text reaches the farmer**: the models only pick an id; every
+  reply is a fixed, reviewed template from `data/templates.json`.
+- **Human in the loop**: unclear twice, out of scope, or "3 = worse" at the
+  follow-up three days later, and the agent is paged by SMS.
+- **Works on any phone**: SMS and USSD through Africa's Talking, plus `PRICE`
+  (official UCDA prices, no AI), `HELP`, `STOP` / `START`.
+
+## Repository
+
+<<<<<<< HEAD
 ```bash
 uv venv --python 3.12            # uv fetches 3.12 itself, no pyenv needed
 uv pip install -r requirements-ai.txt
@@ -14,21 +29,19 @@ uv run python scripts/fetch_models.py      # translator (~80 MB) + e5-small
 ollama pull qwen2.5:3b                     # optional: the LLM second opinion
 cp .env.example .env                       # then fill in AT_API_KEY and AGENT_PHONE
 uv run uvicorn app.main:app --reload
+=======
+>>>>>>> 67abd3e46b7a98681f5585ccb36c4b7132d48ecb
 ```
-
-`requirements.txt` alone is enough for the keyword stand-in (`USE_REAL_AI=0`).
-
-Then `http://localhost:8000/health` and `http://localhost:8000/docs`.
-
-```bash
-uv run pytest -q                 # the whole suite
-uv run pytest -q -k followup     # one journey
-uv run pytest -q tests/test_control_b.py   # the acceptance run
-RUN_MODEL_TESTS=1 uv run pytest -q tests/test_models.py   # the real models (~1 min)
+app/      FastAPI backend: SMS/USSD webhooks, router, SQLite, scheduler, demo API
+ai/       the AI chain: language id, translation, classifier, LLM second opinion
+data/     reply templates (en, lg), coffee prices, synthetic training data, embeddings
+model/    the trained classifier head (numpy) and its labels/threshold
+scripts/  data generation, training, evaluation, model download and conversion
+web/      the demo page (phone simulator + agent view), served at /demo
+docs/     datasheet of the data and the model
+deploy/   Render blueprint notes, systemd unit and Caddyfile for a VM
+tests/    pytest suite (models stubbed, runs in seconds)
 ```
-
-The suite stubs every model, so it runs in seconds anywhere. Run the model
-tests before any deploy that touches `ai/` or `model/`.
 
 ## Endpoints
 
@@ -98,6 +111,7 @@ See `.env.example`.
 | `DB_PATH` | SQLite file, default `data/app.db` |
 | `FRONTEND_ORIGIN` | CORS origin of the Lovable page |
 | `DEMO_LIVE_PHONE` | one real number the demo page may drive through the gateway |
+| `GOOGLE_TRANSLATE_API_KEY` | optional: English subtitles of the Luganda conversation on the demo page. Empty = Google's free endpoint |
 
 Numbers starting `+256799` are demo numbers: their clock is simulated and
 nothing addressed to them ever reaches Africa's Talking. The `/api/demo/*`
@@ -144,3 +158,100 @@ curl https://<app>.onrender.com/health
 In the Africa's Talking sandbox: **SMS > SMS Callback URLs > Incoming
 messages** = `https://<app>.onrender.com/sms`, and the USSD callback =
 `https://<app>.onrender.com/ussd`. Then send a message from the simulator.
+
+## Install and run locally
+
+You need Python 3.10+ (3.12 recommended), about 4 GB of free disk and 2 GB of
+RAM for the full chain. The commands use [`uv`](https://docs.astral.sh/uv/);
+plain `python -m venv` + `pip` work the same way.
+
+**1. Dependencies**
+
+```bash
+git clone https://github.com/Plasmow/WorldBankAgriculture.git
+cd WorldBankAgriculture
+uv venv --python 3.12
+uv pip install -r requirements-ai.txt     # full chain: CTranslate2, transformers, CPU torch, ollama
+# or: uv pip install -r requirements.txt  # web server only, keyword stand-in (USE_REAL_AI=0)
+```
+
+**2. Models.** Weights are never in git. Pick one of the two ways to get the
+translator, quantized to int8:
+
+```bash
+# a) download a ready-made int8 conversion (~620 MB) + tokenizer + e5-small-v2
+uv run python scripts/fetch_models.py
+
+# b) or quantize it yourself from facebook/nllb-200-distilled-600M
+#    (downloads ~2.4 GB, writes ~600 MB into model/nllb-ct2-int8/)
+uv pip install -r requirements-convert.txt
+uv run python scripts/convert_nllb_ct2.py   # ct2-transformers-converter --quantization int8
+uv run python scripts/fetch_models.py       # still needed for the tokenizer and e5-small-v2
+```
+
+The classifier head (`model/classifier.npz`) is already in the repo. To
+rebuild it from the data (optional; needs `scikit-learn scipy joblib
+sentence-transformers`):
+
+```bash
+uv pip install scikit-learn scipy joblib sentence-transformers
+uv run python scripts/extract_embeddings.py
+uv run python scripts/train_classifier.py
+uv run python scripts/evaluate.py
+uv run python scripts/export_classifier.py   # joblib -> numpy, what the server reads
+```
+
+The LLM second opinion is optional. Install [Ollama](https://ollama.com), then:
+
+```bash
+ollama pull qwen2.5:3b      # ~1.9 GB, already 4-bit quantized (Q4_K_M)
+ollama serve                # if it is not already running as a service
+```
+
+Without Ollama the calibrated classifier answers alone and uncertain cases
+still go to the agent.
+
+**3. `.env`.** Copy `cp .env.example .env` and fill it in. For a fully local
+run, with no SMS ever leaving the machine:
+
+```dotenv
+# Africa's Talking: any value works while DEMO_MODE=1
+AT_USERNAME=sandbox
+AT_API_KEY=your-sandbox-api-key
+AT_SHORTCODE=
+AGENT_PHONE=+256700000099        # the extension agent paged by the safety net
+
+DEMO_MODE=1                      # 1 = never call Africa's Talking
+USE_REAL_AI=1                    # 0 = keyword stand-in, no model needed
+USE_LLM=1                        # 0 = skip the Ollama second opinion
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:3b
+NLLB_CT2_REPO=JustFrederik/nllb-200-distilled-600M-ct2-int8
+
+GOOGLE_TRANSLATE_API_KEY=        # optional, English subtitles for judges on /demo
+FRONTEND_ORIGIN=*
+DB_PATH=data/app.db
+```
+
+To send real SMS through the Africa's Talking sandbox, set `DEMO_MODE=0`,
+your sandbox `AT_API_KEY`, and point the sandbox's incoming-SMS callback at
+`<public-url>/sms` (e.g. through `cloudflared tunnel --url http://localhost:8000`).
+
+**4. Run**
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+- `http://localhost:8000/demo`: the phone simulator, the agent's view, and a
+  clock to jump to the day-3 follow-up
+- `http://localhost:8000/health`: shows `"loaded": true` once the models are in (~30 s)
+- `http://localhost:8000/docs`: the API
+
+**5. Tests**
+
+```bash
+uv run pytest -q                                          # models stubbed, seconds
+RUN_MODEL_TESTS=1 uv run pytest -q tests/test_models.py   # the real models (~1 min)
+uv run python scripts/report_chain.py                     # quality report on Luganda and English cases
+```

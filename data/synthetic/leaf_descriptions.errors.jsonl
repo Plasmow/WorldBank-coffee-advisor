@@ -1,2 +1,0 @@
-{"id": "coffee dataset/leaf rust/1200_550.jpg", "error": "ValueError: expected 3 descriptions, got 2 (stop_reason=tool_use)"}
-{"id": "coffee dataset/leaf rust/1200_445.jpg", "error": "ValueError: expected 3 descriptions, got 1 (stop_reason=tool_use)"}
