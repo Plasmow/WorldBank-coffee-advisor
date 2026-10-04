@@ -74,9 +74,17 @@ def read_jsonl(path: Path) -> list[dict]:
 SMS_TOPIC_LABEL = {
     "orange or yellow powder under coffee leaves": "leaf_rust",
     "dark brown or black spots on coffee leaves": "phoma",
-    "coffee leaves that look green and healthy": "healthy",
     "questions about coffee prices": "other",
     "replies to an advisor: better": "other",
+    # Every message under this topic is a yield complaint with healthy-looking
+    # leaves ("green and healthy, but I pick very few cherries"). That is a real
+    # problem we cannot diagnose, so it belongs to a human -- labelling it
+    # healthy would answer "your coffee sounds healthy, keep weeding" to someone
+    # who just lost half a harvest.
+    "coffee leaves that look green and healthy": "other",
+    # Hand-written in sms_gap_en.jsonl: two gaps the generated topics missed.
+    "coffee shoot tips dying back and turning black": "phoma",
+    "coffee leaves with no marks at all": "healthy",
 }
 
 
@@ -111,7 +119,7 @@ def load_rows(args, drops: Counter) -> list[dict]:
     # photo-caption register, and the model learns "caption vs SMS" instead of
     # "disease vs not": every real message then lands in `other`.
     seen_per_topic: Counter = Counter()
-    for i, rec in enumerate(read_jsonl(args.sms)):
+    for i, rec in enumerate(read_jsonl(args.sms) + read_jsonl(args.sms_gap)):
         topic = rec.get("topic")
         label = SMS_TOPIC_LABEL.get(topic)
         if label is None:
@@ -170,6 +178,7 @@ def main() -> None:
     ap.add_argument("--photo", type=Path, default=SYN / "leaf_descriptions.jsonl")
     ap.add_argument("--other", type=Path, default=SYN / "other_messages.jsonl")
     ap.add_argument("--sms", type=Path, default=SYN / "sms_en.jsonl")
+    ap.add_argument("--sms-gap", type=Path, default=SYN / "sms_gap_en.jsonl")
     ap.add_argument("--sms-block", type=int, default=8,
                     help="SMS per group: smaller spreads one topic over more splits")
     ap.add_argument("--hard-test", type=Path, default=Path("data/eval/hard_test.csv"))

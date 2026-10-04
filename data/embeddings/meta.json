@@ -5,22 +5,22 @@
  "normalized": true,
  "rows": {
   "train": {
-   "healthy": 268,
+   "healthy": 260,
    "leaf_rust": 367,
-   "other": 437,
-   "phoma": 353
+   "other": 461,
+   "phoma": 385
   },
   "calib": {
-   "healthy": 55,
+   "healthy": 47,
    "leaf_rust": 62,
-   "other": 98,
-   "phoma": 64
+   "other": 106,
+   "phoma": 66
   },
   "test": {
-   "healthy": 50,
+   "healthy": 42,
    "leaf_rust": 64,
-   "other": 94,
-   "phoma": 70
+   "other": 102,
+   "phoma": 78
   }
  }
 }
