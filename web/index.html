@@ -14,26 +14,78 @@
   --leaf:#2E6A4E; --leaf-soft:#E0EDE5; --amber:#A86F14; --amber-soft:#F6EAD3;
   --cherry:#B0362A; --cherry-soft:#F7E0DC; --slate:#56606A; --slate-soft:#E7EAEE;
   --screen:#F3F6F1; --bubble-in:#E4E9E2;
+  /* The page breathes with Noor's day: these three drive the background and
+     are swapped on body[data-time]. Kept pale on purpose -- a jury reads the
+     cards, the colour is only atmosphere. */
+  --amb1:#CFE3F5; --amb2:#E7F0DC; --amb3:#DFEAD8;
+  --glass:rgba(255,255,255,.62);
+  --shadow-s:0 1px 2px rgba(23,32,28,.045);
+  --shadow-l:0 14px 34px -18px rgba(23,32,28,.30);
   --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
+body[data-time="morning"]{--bg:#F3EBE2; --amb1:#FBD9B8; --amb2:#FDEEDC; --amb3:#EAF0DC}
+body[data-time="day"]    {--bg:#E8ECE5; --amb1:#C9E3F7; --amb2:#E3F1D9; --amb3:#DBEBE1}
+body[data-time="evening"]{--bg:#EFE8EC; --amb1:#E3C4D6; --amb2:#FBD9BE; --amb3:#D6D4EA}
+body[data-time="night"]  {--bg:#E3E7EE; --amb1:#AEBDD9; --amb2:#C6D2E4; --amb3:#BFCCDC}
+
+/* Fixed, behind everything, three soft fields that drift past each other.
+   Gradients rather than blurred shapes: same look, no filter to composite. */
+#aurora{position:fixed;inset:-25%;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(38% 42% at 18% 20%, var(--amb1) 0%, transparent 70%),
+    radial-gradient(44% 48% at 84% 14%, var(--amb2) 0%, transparent 72%),
+    radial-gradient(54% 52% at 46% 92%, var(--amb3) 0%, transparent 74%);
+  transition:background 1.4s ease;
+  animation:drift 52s ease-in-out infinite alternate;will-change:transform}
+@keyframes drift{from{transform:translate3d(-1.5%,-1%,0) scale(1.02)}
+                 to  {transform:translate3d(2%,2.5%,0) scale(1.09)}}
+/* A little grain stops the gradients from banding and reads as paper. */
+#grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.045;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>")}
+
+/* A connection badge that is alive, so "live" is not just a word. */
+.badge.live{position:relative;padding-left:22px}
+.badge.live::before{content:"";position:absolute;left:9px;top:50%;width:7px;height:7px;margin-top:-3.5px;
+  border-radius:50%;background:var(--leaf);box-shadow:0 0 0 0 rgba(46,106,78,.6);
+  animation:pulse 2.4s cubic-bezier(.3,0,.5,1) infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,106,78,.55)}
+                 70%{box-shadow:0 0 0 9px rgba(46,106,78,0)}
+                 100%{box-shadow:0 0 0 0 rgba(46,106,78,0)}}
+
+/* Chips arrive one after another rather than all at once. */
+.chips .chip{animation:chipIn .5s cubic-bezier(.2,.75,.3,1) both}
+.chips .chip:nth-child(2){animation-delay:.06s}
+.chips .chip:nth-child(3){animation-delay:.12s}
+.chips .chip:nth-child(4){animation-delay:.18s}
+@keyframes chipIn{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;min-height:100vh}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;min-height:100vh;
+  transition:background 1.4s ease}
 button{font:inherit}
 h1,h2,h3{font-family:var(--f-display);margin:0}
 
 /* top bar */
-.topbar{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:16px 24px}
+.topbar{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:16px 24px;
+  position:sticky;top:0;z-index:30;background:var(--glass);
+  -webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%);
+  border-bottom:1px solid rgba(23,32,28,.07)}
 .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.brand h1{font-size:24px;font-weight:800;letter-spacing:-.01em}
+.brand h1{font-size:24px;font-weight:800;letter-spacing:-.01em;
+  background:linear-gradient(100deg,var(--ink) 10%,var(--leaf) 55%,var(--amber) 95%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
 .brand span{color:var(--muted);font-size:13px}
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
 .seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;cursor:pointer;color:var(--muted);font-weight:500}
 .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
-.btn{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 16px;cursor:pointer;font-weight:500;color:var(--ink)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 16px;cursor:pointer;font-weight:500;color:var(--ink);
+  transition:transform .18s cubic-bezier(.2,.7,.3,1),box-shadow .18s,background .18s,border-color .18s}
+.btn:hover{transform:translateY(-1.5px);box-shadow:0 8px 18px -10px rgba(23,32,28,.5)}
+.btn:active{transform:translateY(0) scale(.97)}
 .btn.primary{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .btn:focus-visible,.seg button:focus-visible,.chip:focus-visible,.key:focus-visible,.timebtn:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
 #apiBase{border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-family:var(--f-mono);font-size:12px;width:220px;background:var(--panel)}
@@ -44,7 +96,14 @@ h1,h2,h3{font-family:var(--f-display);margin:0}
 /* grid */
 main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) auto;justify-content:center;gap:28px;padding:4px 24px 32px;align-items:start;max-width:1280px;margin:0 auto}
 @media (max-width:980px){main{grid-template-columns:1fr;justify-items:stretch}.phone-col{justify-self:center}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:14px;min-width:0;
+  position:relative;box-shadow:var(--shadow-s),var(--shadow-l);
+  animation:rise .72s cubic-bezier(.2,.75,.3,1) both}
+.card::before{content:"";position:absolute;inset:0 0 auto;height:2px;border-radius:18px 18px 0 0;
+  background:linear-gradient(90deg,transparent,var(--leaf),var(--amber),transparent);opacity:.45}
+main>.card:nth-of-type(2){animation-delay:.09s}
+main>.card:nth-of-type(3){animation-delay:.18s}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .card h2{font-size:18px;font-weight:600}
 
@@ -109,7 +168,11 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
 .key small{font-size:8.5px;letter-spacing:.08em;color:#9AA59F;margin-top:3px}
 .key:active,.sk:active,.dpad:active{transform:translateY(1px)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:330px}
-.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--ink)}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--ink);
+  transition:transform .16s,background .16s,border-color .16s,box-shadow .16s}
+.chip:hover:not(:disabled){transform:translateY(-1.5px);background:var(--leaf-soft);border-color:var(--leaf);
+  box-shadow:0 7px 14px -9px rgba(46,106,78,.8)}
+.chip:active:not(:disabled){transform:scale(.97)}
 .chip.kw{font-family:var(--f-mono)}
 .chip:disabled{opacity:.45;cursor:not-allowed}
 .hint{font-size:12px;color:var(--muted);text-align:center;max-width:300px}
@@ -142,10 +205,16 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
 .tr-compose input:disabled,.tr-compose button:disabled{opacity:.5;cursor:not-allowed}
 .footnote{max-width:1200px;margin:0 auto;padding:0 24px 28px;color:var(--muted);font-size:12px}
 
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  #aurora{transform:none!important}
+  .card{opacity:1!important}
+}
 </style>
 </head>
-<body>
+<body data-time="evening">
+<div id="aurora" aria-hidden="true"></div>
+<div id="grain" aria-hidden="true"></div>
 
 <header class="topbar">
   <div class="brand">
@@ -521,6 +590,7 @@ function renderScene(){
   $('skyMid').setAttribute('stop-color',K.mid);
   $('moonCut').setAttribute('fill',K.s1);
   $('haze').setAttribute('opacity',K.haze);
+  document.body.dataset.time=S.time;   // the page palette follows the scene
   $('clouds').setAttribute('opacity',K.clouds);
   $('birds').style.display=(S.time==='morning'||S.time==='day')?'':'none';
   $('fireflies').setAttribute('opacity',S.time==='night'?1:0);
