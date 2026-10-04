@@ -1,44 +1,204 @@
-"""The real chain must be importable and usable without the heavy parts.
+"""The real chain (ai/analyze.py), with every model replaced by a stub.
 
-Nothing in ai/ may need a model at import time. The farmer writing in English
-needs no translation, and a missing Ollama is a documented fallback -- the
-classifier answers alone. Both were broken by a merge: ollama was imported at
-module level, so the whole chain was unimportable without it.
+The decision table is what keeps Noor safe, so it is tested here without
+NLLB, e5 or Ollama: fast, deterministic, and it runs on any laptop or CI.
+The models themselves are exercised by tests/test_models.py, which skips
+when they are not on disk.
 """
 
 import pytest
 
 CONTRACT = {"lang", "text_en", "label", "proba", "llm_label", "decision", "template_id", "reason"}
-DECISIONS = {"answer", "clarify", "escalate"}
 
 
-def test_the_chain_imports_without_ollama_or_a_model():
+@pytest.fixture
+def chain(monkeypatch):
+    """ai.analyze with a scripted classifier, LLM and translator."""
+    import ai.analyze as an
+
+    script = {"clf": ("leaf_rust", 0.95), "llm": "leaf_rust", "question": "clarify_colour"}
+    translated = []
+
+    def fake_classify(text_en):
+        return script["clf"](text_en) if callable(script["clf"]) else script["clf"]
+
+    def fake_llm(text_en):
+        if script["llm"] == "down":
+            return {"label": None, "sure": False, "question": "clarify", "reason": "llm_error"}
+        return {"label": script["llm"], "sure": True, "question": script["question"], "reason": "x"}
+
+    def fake_translate(text):
+        translated.append(text)
+        return f"EN({text})"
+
+    monkeypatch.setattr(an, "classify", fake_classify)
+    monkeypatch.setattr(an, "llm_predict", fake_llm)
+    monkeypatch.setattr(an.translate, "lug_to_en", fake_translate)
+    script["translated"] = translated
+    return an, script
+
+
+def test_the_chain_imports_without_any_model():
     from ai.analyze import analyze  # noqa: F401
 
 
-def test_english_needs_no_translation_model():
-    from ai.analyze import analyze
-
-    r = analyze("orange powder under the leaves")
+def test_agreement_above_threshold_answers_with_advice(chain):
+    an, s = chain
+    r = an.analyze("orange powder under the leaves")
     assert set(r) >= CONTRACT
+    assert (r["decision"], r["template_id"], r["reason"]) == ("answer", "adv_leaf_rust", "agree")
     assert r["lang"] == "en"
-    assert r["decision"] in DECISIONS
+    assert s["translated"] == []  # English needs no translation
 
 
-def test_a_missing_llm_falls_back_to_the_classifier_alone():
-    from ai.analyze import analyze
+def test_luganda_is_translated_before_classifying(chain):
+    an, s = chain
+    r = an.analyze("Ebikoola by'emmwanyi zange birina obuwunga")
+    assert r["lang"] == "lg"
+    assert r["text_en"].startswith("EN(")
+    assert s["translated"] == ["Ebikoola by'emmwanyi zange birina obuwunga"]
 
-    r = analyze("orange powder and rust dust under the leaves")
-    assert r["llm_label"] is None          # no daemon here
-    assert r["decision"] == "answer"       # the documented plan B
-    assert r["reason"] == "llm_unavailable"
-    assert r["template_id"] == "Rust"
+
+def test_disagreement_asks_the_question_the_llm_chose(chain):
+    an, s = chain
+    s["llm"], s["question"] = "phoma", "clarify_rust_phoma"
+    r = an.analyze("brown and orange marks on the leaves")
+    assert (r["decision"], r["template_id"], r["reason"]) == ("clarify", "clarify_rust_phoma", "disagree")
+
+
+def test_low_confidence_asks_one_question(chain):
+    an, s = chain
+    s["clf"], s["question"] = ("phoma", 0.55), "clarify_where"
+    r = an.analyze("my coffee looks bad")
+    assert (r["decision"], r["template_id"], r["reason"]) == ("clarify", "clarify_where", "low_confidence")
+
+
+def test_still_unsure_after_the_question_escalates(chain):
+    an, s = chain
+    s["clf"] = ("phoma", 0.55)
+    r = an.analyze("my coffee looks bad", clarify_answer="i do not know")
+    assert (r["decision"], r["template_id"]) == ("escalate", "unsure")
+
+
+def test_the_answer_is_read_with_the_first_message(chain):
+    an, s = chain
+    seen = []
+    s["clf"] = lambda t: seen.append(t) or ("leaf_rust", 0.95)
+    r = an.analyze("my coffee looks bad", clarify_answer="orange powder under the leaves")
+    assert r["decision"] == "answer"
+    assert "my coffee looks bad" in seen[-1] and "orange powder" in seen[-1]
+
+
+def test_a_clear_answer_is_not_diluted_by_the_vague_first_message(chain):
+    an, s = chain
+    s["clf"] = lambda t: ("leaf_rust", 0.97) if t == "orange powder under the leaves" else ("leaf_rust", 0.7)
+    r = an.analyze("my coffee looks bad", clarify_answer="orange powder under the leaves")
+    assert (r["decision"], r["label"], r["proba"]) == ("answer", "leaf_rust", 0.97)
+
+
+def test_a_vague_answer_does_not_rescue_a_vague_message(chain):
+    an, s = chain
+    s["clf"] = lambda t: ("other", 0.9) if t == "i do not know" else ("phoma", 0.6)
+    r = an.analyze("my coffee looks bad", clarify_answer="i do not know")
+    assert r["decision"] == "escalate"
+
+
+def test_digits_are_never_sent_to_the_translator(chain):
+    an, s = chain
+    an.analyze("3")
+    assert s["translated"] == []
+
+
+def test_vague_other_gets_a_question_when_the_llm_is_unsure(chain, monkeypatch):
+    # A badly translated Luganda message often looks like "other" to the
+    # classifier; one question costs little, a needless agent call costs more.
+    an, s = chain
+    s["clf"] = ("other", 0.97)
+    monkeypatch.setattr(an, "llm_predict", lambda t: {
+        "label": "other", "sure": False, "question": "clarify_where", "reason": "vague"})
+    r = an.analyze("Emmwanyi zange zirabika bubi")
+    assert (r["decision"], r["template_id"]) == ("clarify", "clarify_where")
+
+
+def test_confident_other_goes_straight_to_the_agent(chain):
+    an, s = chain
+    s["clf"], s["llm"] = ("other", 0.99), "other"
+    r = an.analyze("insects are eating the berries")
+    assert (r["decision"], r["template_id"], r["reason"]) == ("escalate", "unsure", "other")
+
+
+def test_other_is_never_answered_whatever_the_llm_says(chain, monkeypatch):
+    an, s = chain
+    for proba in (0.5, 0.85, 0.99):
+        for llm_label in ("other", "leaf_rust", "phoma", "healthy", None):
+            for sure in (True, False):
+                s["clf"] = ("other", proba)
+                monkeypatch.setattr(an, "llm_predict", lambda t, l=llm_label, su=sure: {
+                    "label": l, "sure": su, "question": "clarify", "reason": ""})
+                for answer in (None, "more details"):
+                    r = an.analyze("hello", clarify_answer=answer)
+                    assert r["decision"] != "answer", (proba, llm_label, sure, answer)
+
+
+def test_a_missing_llm_falls_back_to_the_classifier_alone(chain):
+    an, s = chain
+    s["llm"] = "down"
+    r = an.analyze("orange powder under the leaves")
+    assert r["llm_label"] is None
+    assert (r["decision"], r["reason"], r["template_id"]) == ("answer", "llm_unavailable", "adv_leaf_rust")
+
+
+def test_a_missing_llm_and_a_doubtful_classifier_still_ask(chain):
+    an, s = chain
+    s["llm"], s["clf"] = "down", ("leaf_rust", 0.6)
+    r = an.analyze("orange marks")
+    assert (r["decision"], r["template_id"]) == ("clarify", "clarify")
+
+
+def test_a_broken_translation_falls_back_to_the_raw_text(chain, monkeypatch):
+    an, _ = chain
+
+    def boom(text):
+        raise FileNotFoundError("no model")
+
+    monkeypatch.setattr(an.translate, "lug_to_en", boom)
+    r = an.analyze("Ebikoola by'emmwanyi zange birina obuwunga")
+    assert r["text_en"] == "Ebikoola by'emmwanyi zange birina obuwunga"
+
+
+def test_every_template_the_chain_can_pick_exists():
+    import json
+    import pathlib
+
+    from ai.analyze import ADVICE_TEMPLATES
+    from ai.llm import QUESTIONS
+
+    templates = json.loads((pathlib.Path(__file__).parent.parent / "data" / "templates.json")
+                           .read_text(encoding="utf-8"))
+    for key in [*ADVICE_TEMPLATES.values(), *QUESTIONS, "unsure"]:
+        assert templates[key]["en"] and templates[key]["lg"], key
+
+
+def test_llm_disabled_returns_no_label(monkeypatch):
+    from ai import llm
+
+    monkeypatch.setenv("USE_LLM", "0")
+    assert llm.llm_predict("orange powder")["label"] is None
+
+
+def test_llm_off_schema_answer_is_treated_as_unavailable(monkeypatch):
+    from ai import llm
+
+    monkeypatch.setenv("USE_LLM", "1")
+    monkeypatch.setattr(llm, "_ask", lambda t: '{"label": "coffee_wilt", "question": "nope"}')
+    r = llm.llm_predict("something")
+    assert r["label"] is None and r["question"] == "clarify"
 
 
 def test_translate_exposes_both_names_the_team_uses():
     import ai.translate as tr
 
-    assert tr.load is tr.preload   # app/ calls load(), ai/ called it preload()
+    assert tr.load is tr.preload
 
 
 def test_translate_says_what_is_missing_instead_of_importing_a_model(monkeypatch, tmp_path):
@@ -49,11 +209,31 @@ def test_translate_says_what_is_missing_instead_of_importing_a_model(monkeypatch
     tr.get_translator.cache_clear()
     with pytest.raises(FileNotFoundError, match="convert_nllb_ct2"):
         tr.load()
+    tr.get_translator.cache_clear()
 
 
-def test_the_translator_is_cached(monkeypatch, tmp_path):
-    # The merge left get_translator defined twice, the second one uncached:
-    # every sentence would have reloaded 621 MB from disk.
+def test_the_translator_is_cached():
     import ai.translate as tr
 
     assert hasattr(tr.get_translator, "cache_info")
+
+
+@pytest.mark.parametrize("text,lang", [
+    ("orange powder under the leaves", "en"),
+    ("my coffee plants look bad", "en"),
+    ("Ebikoola by'emmwanyi zange birina obuwunga obwa langi ya kacungwa wansi waabyo", "lg"),
+    ("Emmwanyi zigula ssente mmeka leero?", "lg"),
+    ("Emmwanyi zange zirabika bubi", "lg"),
+    ("Oli otya ssebo", "lg"),
+])
+def test_language_detection(text, lang):
+    from ai.lang import detect_lang
+
+    assert detect_lang(text) == lang
+
+
+def test_language_detection_keeps_the_default_when_it_cannot_tell():
+    from ai.lang import detect_lang
+
+    assert detect_lang("zzzz", default="lg") == "lg"
+    assert detect_lang("123", default="en") == "en"

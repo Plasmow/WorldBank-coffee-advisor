@@ -10,7 +10,13 @@ import os
 import httpx
 
 log = logging.getLogger(__name__)
-AT_URL = "https://api.sandbox.africastalking.com/version1/messaging"
+SANDBOX_URL = "https://api.sandbox.africastalking.com/version1/messaging"
+LIVE_URL = "https://api.africastalking.com/version1/messaging"
+
+
+def api_url():
+    # The sandbox app is always called "sandbox"; any other username is live.
+    return SANDBOX_URL if os.environ.get("AT_USERNAME", "sandbox") == "sandbox" else LIVE_URL
 
 
 def send_sms(to, text):
@@ -33,7 +39,7 @@ def send_sms(to, text):
 
     try:
         response = httpx.post(
-            AT_URL,
+            api_url(),
             data=payload,
             headers={"apiKey": os.environ.get("AT_API_KEY", ""), "Accept": "application/json"},
             timeout=10,
@@ -42,7 +48,7 @@ def send_sms(to, text):
         log.exception("africa's talking send failed")
         return
 
-    _check(response)
+    return _check(response)
 
 
 def _check(response):
@@ -60,3 +66,5 @@ def _check(response):
         return
     if not data.get("Recipients"):
         log.error("africa's talking delivered to nobody: %s", data.get("Message", response.text[:200]))
+        return
+    return data

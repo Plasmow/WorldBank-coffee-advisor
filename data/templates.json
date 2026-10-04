@@ -1,20 +1,102 @@
 {
-  "Healthy": "The leaf looks healthy",
-  "Rust": "It looks like the leaf has rust",
-  "Phoma": "It looks like the leaf has phoma",
-  "Unknown": "It is unclear what the diagnostic is.",
-  "welcome": "Coffee Advisor. Free crop advice by SMS. Describe your coffee plants, or send PRICE for market rates, HELP for options, STOP to opt out.",
-  "help": "Send PRICE for coffee prices, AGENT to reach a person, or describe the leaves of your coffee plants. STOP to opt out.",
-  "prices": "UCDA farm-gate prices {date}: {body} UGX per kg.",
-  "prices_unavailable": "Prices are not available right now. Please try again later.",
-  "stop_ack": "You will get no more messages. Send START to resume.",
-  "start_ack": "Welcome back. Describe your coffee plants, or send PRICE.",
-  "clarify": "To be sure: are the marks on the leaves or on the berries, and what colour are they?",
-  "unsure": "I am not sure what this is. A field agent has been alerted and will contact you.",
-  "followup_q": "How are your coffee plants 3 days on? Reply 1 better, 2 same, 3 worse.",
-  "followup_ok": "Good. Keep following the advice. Send a new message any time.",
-  "followup_worse": "Sorry to hear that. A field agent has been alerted and will contact you.",
-  "ussd_menu": "Coffee Advisor\n1. Coffee prices\n2. Report a symptom\n3. Talk to an agent",
-  "ussd_ask_symptom": "Describe what you see on your coffee plants.",
-  "agent_requested": "An agent has been alerted and will contact you soon."
+  "adv_leaf_rust": {
+    "en": "Looks like coffee leaf rust. Pick off badly hit leaves and bury them, prune and weed for air, add manure. Ask your agent about a copper spray.",
+    "lg": "Kirabika kukwata kwa kutalagga ku bikoola (leaf rust). Noga ebikoola ebyonoonese obiziike, sala amatabi, koola, teekamu nakavundira. Buuza omulimisa.",
+    "lg_verified": false
+  },
+  "adv_phoma": {
+    "en": "Looks like Phoma (cold-weather blight). Cut off black, dying tips and burn them, shelter young trees from cold wind, avoid wounds. Ask your agent.",
+    "lg": "Kirabika Phoma (obulwadde bw'empewo). Salako ensonda enzirugavu ezikala ozyokye, kuuma emiti emito okuva ku mpewo, togisala bubi. Buuza omulimisa.",
+    "lg_verified": false
+  },
+  "adv_healthy": {
+    "en": "Your coffee sounds healthy. Keep weeding, mulching and pruning. Check under the leaves each week and text us if you see spots or powder.",
+    "lg": "Emmwanyi zo zirabika nnamu. Weeyongere okukoola, okubikka n'okusala amatabi. Kebera wansi w'ebikoola buli wiiki, otuwandiikire bw'olaba amabala.",
+    "lg_verified": false
+  },
+  "clarify": {
+    "en": "To be sure: are the marks on the leaves or on the berries, and what colour are they?",
+    "lg": "Okukakasa: obubonero buli ku bikoola oba ku bibala, era bya langi ki?",
+    "lg_verified": false
+  },
+  "clarify_where": {
+    "en": "Where do you see the problem: on the leaves, the berries, the stems or the roots?",
+    "lg": "Ekizibu okirabira wa: ku bikoola, ku bibala, ku bikolo oba ku mirandira?",
+    "lg_verified": false
+  },
+  "clarify_colour": {
+    "en": "What do you see on the leaves: orange powder underneath, black or brown patches, or no marks?",
+    "lg": "Kiki ky'olaba ku bikoola: obuwunga bwa kacungwa wansi, amabala amaddugavu oba ag'ekitaka, oba tewali kabonero?",
+    "lg_verified": false
+  },
+  "clarify_rust_phoma": {
+    "en": "Is it orange powder under the leaves, or are the tips of young leaves turning black and dry?",
+    "lg": "Buwunga bwa kacungwa wansi w'ebikoola, oba ensonda z'ebikoola ebito zifuuka nzirugavu ne zikala?",
+    "lg_verified": false
+  },
+  "unsure": {
+    "en": "I am not sure what this is. A field agent has been alerted and will call you.",
+    "lg": "Sikakasa kino kye ki. Omulimisa amanyisiddwa era ajja kukukubira essimu.",
+    "lg_verified": false
+  },
+  "welcome": {
+    "en": "Coffee Advisor: free coffee advice by SMS. We keep your messages to advise you. Describe your leaves, or send PRICE, HELP, or STOP to end.",
+    "lg": "Coffee Advisor: amagezi ku mmwanyi ku SMS, bwereere. Tukuuma obubaka bwo. Nnyonnyola ebikoola, oba weereza PRICE, HELP, oba STOP okukomya.",
+    "lg_verified": false
+  },
+  "help": {
+    "en": "Send PRICE for coffee prices, AGENT to reach a person, or describe your coffee leaves. STOP to end.",
+    "lg": "Weereza PRICE ku bbeeyi y'emmwanyi, AGENT okwogera n'omuntu, oba nnyonnyola ebikoola by'emmwanyi zo. STOP okukomya.",
+    "lg_verified": false
+  },
+  "prices": {
+    "en": "Coffee prices, UCDA {date}, UGX per kg: {body}. Do not sell for less.",
+    "lg": "Bbeeyi y'emmwanyi, UCDA {date}, UGX buli kilo: {body}. Totunda wansi w'eno.",
+    "lg_verified": false
+  },
+  "prices_unavailable": {
+    "en": "Prices are not available right now. Please try again later.",
+    "lg": "Bbeeyi teriiwo kati. Ddamu ogezeeko oluvannyuma.",
+    "lg_verified": false
+  },
+  "stop_ack": {
+    "en": "You will get no more messages. Send START to come back.",
+    "lg": "Tojja kuddamu kufuna bubaka. Weereza START okudda.",
+    "lg_verified": false
+  },
+  "start_ack": {
+    "en": "Welcome back. Describe your coffee leaves, or send PRICE.",
+    "lg": "Tukwaniriza nate. Nnyonnyola ebikoola by'emmwanyi zo, oba weereza PRICE.",
+    "lg_verified": false
+  },
+  "followup_q": {
+    "en": "How are your coffee plants 3 days on? Reply 1 better, 2 same, 3 worse.",
+    "lg": "Emmwanyi zo ziri zitya oluvannyuma lw'ennaku 3? Ddamu 1 zirongooka, 2 bwe zityo, 3 zeeyongedde okwonooneka.",
+    "lg_verified": false
+  },
+  "followup_ok": {
+    "en": "Good. Keep following the advice. Text us any time.",
+    "lg": "Kirungi. Weeyongere okugoberera amagezi. Tuwandiikire ekiseera kyonna.",
+    "lg_verified": false
+  },
+  "followup_worse": {
+    "en": "Sorry to hear that. A field agent has been alerted and will call you.",
+    "lg": "Kitunakuwazizza. Omulimisa amanyisiddwa era ajja kukukubira essimu.",
+    "lg_verified": false
+  },
+  "agent_requested": {
+    "en": "An agent has been alerted and will call you soon.",
+    "lg": "Omulimisa amanyisiddwa era ajja kukukubira mangu.",
+    "lg_verified": false
+  },
+  "ussd_menu": {
+    "en": "Coffee Advisor\n1. Coffee prices\n2. Report a symptom\n3. Talk to an agent",
+    "lg": "Coffee Advisor\n1. Bbeeyi y'emmwanyi\n2. Nnyonnyola ekizibu\n3. Yogera n'omulimisa",
+    "lg_verified": false
+  },
+  "ussd_ask_symptom": {
+    "en": "Describe what you see on your coffee plants.",
+    "lg": "Nnyonnyola ky'olaba ku mmwanyi zo.",
+    "lg_verified": false
+  }
 }

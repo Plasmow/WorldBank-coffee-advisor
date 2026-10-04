@@ -6,7 +6,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app import clock, db, router, scheduler
+from app import clock, content, db, gtranslate, router, scheduler
 
 api = APIRouter(prefix="/api/demo")
 
@@ -93,6 +93,36 @@ def state(phone: str):
             for e in db.events(phone)
         ],
     }
+
+
+@api.get("/english")
+def english(phone: str):
+    """The conversation in English, for the judges.
+
+    - our replies: the exact English of the template they came from;
+    - Noor's messages: Google Translate, or, when Google is unavailable,
+      the NLLB translation the AI chain already made of them.
+
+    Takes a phone, not free text: the route translates only what is already
+    in a demo conversation, so it cannot be used as a free translation proxy.
+    """
+    phone = demo_phone(phone)
+    rows = db.messages(phone)
+    out = []
+    for m in rows:
+        en = content.english_of(m["text"]) if m["direction"] == "out" else None
+        if en is not None:
+            src = "en" if en == m["text"] else "lg"
+            out.append({"id": m["id"], "direction": m["direction"], "text": m["text"],
+                        "en": en, "src": src, "via": "template"})
+            continue
+        (en, src), = gtranslate.to_english([m["text"]])
+        via = "google"
+        if en is None and m["text_en"]:
+            en, src, via = m["text_en"], "lg", "nllb"
+        out.append({"id": m["id"], "direction": m["direction"], "text": m["text"],
+                    "en": en, "src": src, "via": via if en is not None else None})
+    return {"messages": out}
 
 
 @api.post("/clock")

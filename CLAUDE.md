@@ -16,14 +16,14 @@ Hors périmètre : app mobile, vision, tableau de bord agent, grand LLM (Claude,
 
 ## Architecture
 
-- Backend FastAPI + SQLite sur **Replit** (1 worker, 1 instance). Page de démo sur **Lovable** ; `web/index.html` = secours (Vercel).
+- Backend FastAPI + SQLite sur **Render** (`render.yaml`, plan Standard 2 Go, 1 worker, 1 instance). Page de démo sur **Lovable** ; `web/index.html` = secours (Vercel).
 - SMS via **Africa's Talking (sandbox)** : webhook `POST /sms` (formulaire `from`, `text`…).
 - Démo : chaque visiteur a un numéro `+256799XXXXXX` (jamais envoyé à Africa's Talking) et sa propre horloge simulée (`app/clock.py`).
   `run_due()` tourne à chaque requête de démo et dans une boucle de fond (le serveur peut se mettre en veille).
 
 ```
 app/   main.py (routes, CORS, /health) · router.py (handle_incoming) · db.py · clock.py · scheduler.py · at_client.py · demo_routes.py
-ai/    analyze.py (provisoire, mots-clés, à remplacer par la vraie chaîne)
+ai/    analyze.py (décision) · translate.py (NLLB CT2 int8 + glossaire) · classifier.py (e5 + classifier.npz) · llm.py (Ollama) · lang.py
 data/  templates.json (en, lg) · prices.json
 web/   index.html          scripts/ model/ docs/   données et classifieur
 ```
@@ -46,6 +46,6 @@ Jalons : 3 h backend en ligne et SMS du simulateur qui reçoit une réponse · 7
 
 ## Règles
 
-- `main` doit toujours tourner (Replit la déploie) : tests `pytest` avant chaque push, petits commits.
+- `main` doit toujours tourner (Render la déploie) : tests `pytest` avant chaque push, petits commits.
 - Tout message vers Noor vient de `templates.json`. Tout horodatage passe par `clock.now(phone)`.
 - Code en anglais, commentaires en anglais. Pas de dépendance lourde dans `app/`. Jamais de poids de modèle ni de `.env` dans git.

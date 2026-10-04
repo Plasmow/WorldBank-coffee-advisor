@@ -87,7 +87,7 @@ def test_a_well_formed_chain_result_is_passed_through(client, monkeypatch):
     def good(text, clarify_answer=None):
         return {"lang": "lg", "text_en": "orange powder", "label": "leaf_rust",
                 "proba": 0.93, "llm_label": "leaf_rust", "decision": "answer",
-                "template_id": "Rust", "reason": ""}
+                "template_id": "adv_leaf_rust", "reason": ""}
 
     monkeypatch.setenv("USE_REAL_AI", "1")
     monkeypatch.setitem(sys.modules, "ai.analyze", fake_ai_module(good))

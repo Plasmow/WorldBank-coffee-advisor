@@ -1,8 +1,9 @@
 """The seam between the backend and P3's AI chain.
 
-app/ never imports ai/ at module level: ai/translate.py loads NLLB-200 (~2.4 GB)
-on import, which would sink both the tests and the Replit boot. The real chain
-is imported inside the function, only when USE_REAL_AI=1.
+app/ never imports the heavy parts of ai/ at module level: the chain loads
+NLLB-200 (CTranslate2, ~600 MB), e5-small and torch, which would sink both the
+tests and the boot. The real chain is imported inside the function, only when
+USE_REAL_AI=1; ai/lang.py, pure Python, is the exception.
 """
 
 import logging
@@ -11,13 +12,11 @@ import re
 
 log = logging.getLogger(__name__)
 
-# P3's templates.json uses capitalised keys for the three diagnoses; the
-# contract labels are snake_case. Bridging here beats renaming someone else's
-# file mid-hackathon. Anything not in this map is not something we answer.
+# Advice template per label. Anything not in this map is not something we answer.
 LABEL_TEMPLATE = {
-    "healthy": "Healthy",
-    "leaf_rust": "Rust",
-    "phoma": "Phoma",
+    "healthy": "adv_healthy",
+    "leaf_rust": "adv_leaf_rust",
+    "phoma": "adv_phoma",
 }
 
 HINTS = {
@@ -52,7 +51,9 @@ def enabled():
 
 
 def state():
-    return dict(_STATE)
+    # enabled is read live: the preload runs in a thread and may not have
+    # started when the first /health arrives.
+    return {**_STATE, "enabled": enabled()}
 
 
 def preload():
@@ -62,16 +63,19 @@ def preload():
     Never raises. A missing model is a degraded demo; a boot crash is no demo.
     """
     _STATE.clear()
-    _STATE.update(enabled=enabled(), loaded=False)
+    _STATE.update(loaded=False)
     if not enabled():
         return state()
+    _STATE.update(loading=True)
     try:
-        from ai import translate  # lazy on purpose, see module docstring
+        from ai.analyze import preload as load_chain  # lazy on purpose, see module docstring
 
-        _STATE.update(loaded=True, seconds=round(translate.load(), 1))
+        _STATE.update(loaded=True, seconds=round(load_chain(), 1))
     except Exception as exc:
         log.exception("the AI chain could not be preloaded")
         _STATE.update(error=f"{type(exc).__name__}: {exc}"[:200])
+    finally:
+        _STATE.update(loading=False)
     return state()
 
 
@@ -139,8 +143,10 @@ def _keyword_analyze(text, clarify_answer=None):
 
 
 def _result(text_en, label, proba, decision, template_id, reason=""):
+    from ai.lang import detect_lang  # pure Python, nothing heavy
+
     return {
-        "lang": "en",
+        "lang": detect_lang(text_en),
         "text_en": text_en,
         "label": label,
         "proba": proba,
