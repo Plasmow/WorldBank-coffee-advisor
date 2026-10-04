@@ -258,9 +258,9 @@ main{display:grid;grid-template-columns:minmax(340px,600px) auto;justify-content
       <button class="chip" data-msg="The berries have small holes">Holes in berries</button>
     </div>
     <div class="chips" id="chipsKw">
-      <button class="chip kw" data-msg="PRIX">PRIX</button>
-      <button class="chip kw" data-msg="AIDE">AIDE</button>
+      <button class="chip kw" data-msg="PRICE">PRICE</button>
       <button class="chip kw" data-msg="AGENT">AGENT</button>
+      <button class="chip kw" data-msg="HELP">HELP</button>
       <button class="chip kw" data-msg="1">1</button>
       <button class="chip kw" data-msg="2">2</button>
       <button class="chip kw" data-msg="3">3</button>
@@ -299,7 +299,7 @@ CONFIG.phone = CONFIG.demoPhone;
             events:[{id, kind:'agent_alert'|'followup', text, ts}]}
            'in' = sent by Noor. On her messages, label/proba/decision are what the AI chain
            decided: label in healthy|leaf_rust|phoma|other, decision in answer|clarify|escalate.
-           Keyword messages (PRIX, AIDE, AGENT, STOP) never reach the chain, so their fields are null.
+           Keyword messages (PRICE, HELP, AGENT, STOP) never reach the chain, so their fields are null.
    POST /api/demo/send   {phone, text}       same processing as a real SMS
    POST /api/demo/clock  {phone, day 0-6, slot morning|day|evening|night}
                                              moves this visitor's clock, then runs anything now due
@@ -388,7 +388,7 @@ function verdict(m){
 }
 function renderThread(){
   const T=TIMES[S.time], th=$('thread');
-  if(!S.messages.length){th.innerHTML='<div class="empty-thread">No messages yet.<br>Noor can describe what she sees on her coffee, or send PRIX for a reference price.</div>';}
+  if(!S.messages.length){th.innerHTML='<div class="empty-thread">No messages yet.<br>Noor can describe what she sees on her coffee, or send PRICE for a reference price.</div>';}
   else th.innerHTML=S.messages.map(m=>`<div class="bubble ${m.from}${m.fresh?' fresh':''}">${esc(m.text)}<span class="meta">${esc(m.ts)}</span></div>${verdict(m)}`).join('');
   th.scrollTop=th.scrollHeight;
   S.messages.forEach(m=>m.fresh=false);
@@ -497,7 +497,7 @@ const SCRIPT=[
   async()=>{ const n0=serviceCount(); await setTime('evening',3); await waitForReply(n0,15000); await sleep(2000); await typeSend('3'); await sleep(2500); },
   async()=>{ await setTime('evening',4); await sleep(1000); await typeSend('Something is wrong with my coffee trees'); await sleep(1800); await typeSend('On the leaves, orange powder'); await sleep(2500); },
   async()=>{ await typeSend('The berries have small holes'); await sleep(2500); },
-  async()=>{ await setTime('morning',5); await sleep(1200); await typeSend('PRIX'); await sleep(2000); },
+  async()=>{ await setTime('morning',5); await sleep(1200); await typeSend('PRICE'); await sleep(2000); },
 ];
 async function play(){
   if(S.playing){ S.stop=true; return; }
