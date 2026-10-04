@@ -39,6 +39,7 @@ from leafdesc_common import FLAG_RE
 
 SYN = Path("data/synthetic")
 SPLIT_NAMES = ("train", "calib", "test")
+MIN_CHARS = 3
 PRIORITY = ("test", "calib", "train")  # when a text is duplicated across splits, keep it in the first of these
 
 
@@ -89,6 +90,9 @@ def load_rows(args, drops: Counter) -> list[dict]:
         if "error" in rec:
             continue
         for i, text in enumerate(rec["messages"]):
+            if len(text.strip()) < MIN_CHARS:  # broken batches where the model returned single characters
+                drops["other: text shorter than %d characters" % MIN_CHARS] += 1
+                continue
             rows.append({"text": text, "label": rec["label"], "group": rec["group"],
                          "source_id": f"{rec['batch_id']}#{i}", "kind": rec.get("kind", "other")})
     return rows

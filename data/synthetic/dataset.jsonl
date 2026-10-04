@@ -1112,30 +1112,6 @@
 {"text": "need solution for plant problem urgently", "label": "other", "group": "fertilizer_pesticide_requests", "source_id": "fertilizer_pesticide_requests-1#7", "kind": "offtopic_or_service", "split": "train"}
 {"text": "what is the correct way to apply it", "label": "other", "group": "fertilizer_pesticide_requests", "source_id": "fertilizer_pesticide_requests-1#8", "kind": "offtopic_or_service", "split": "train"}
 {"text": "i want to know what chemical to buy for my farm", "label": "other", "group": "fertilizer_pesticide_requests", "source_id": "fertilizer_pesticide_requests-1#9", "kind": "offtopic_or_service", "split": "train"}
-{"text": "[", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#0", "kind": "offtopic_or_service", "split": "train"}
-{"text": "G", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#1", "kind": "offtopic_or_service", "split": "train"}
-{"text": "a", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#10", "kind": "offtopic_or_service", "split": "train"}
-{"text": "e", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#11", "kind": "offtopic_or_service", "split": "train"}
-{"text": "y", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#12", "kind": "offtopic_or_service", "split": "train"}
-{"text": "u", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#13", "kind": "offtopic_or_service", "split": "train"}
-{"text": "t", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#14", "kind": "offtopic_or_service", "split": "train"}
-{"text": "k", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#15", "kind": "offtopic_or_service", "split": "train"}
-{"text": "f", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#16", "kind": "offtopic_or_service", "split": "train"}
-{"text": "l", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#17", "kind": "offtopic_or_service", "split": "train"}
-{"text": "p", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#18", "kind": "offtopic_or_service", "split": "train"}
-{"text": "s", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#19", "kind": "offtopic_or_service", "split": "train"}
-{"text": "o", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#2", "kind": "offtopic_or_service", "split": "train"}
-{"text": "b", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#20", "kind": "offtopic_or_service", "split": "train"}
-{"text": "c", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#21", "kind": "offtopic_or_service", "split": "train"}
-{"text": "v", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#22", "kind": "offtopic_or_service", "split": "train"}
-{"text": "j", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#23", "kind": "offtopic_or_service", "split": "train"}
-{"text": "d", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#3", "kind": "offtopic_or_service", "split": "train"}
-{"text": "m", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#4", "kind": "offtopic_or_service", "split": "train"}
-{"text": "r", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#5", "kind": "offtopic_or_service", "split": "train"}
-{"text": "n", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#6", "kind": "offtopic_or_service", "split": "train"}
-{"text": "i", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#7", "kind": "offtopic_or_service", "split": "train"}
-{"text": "h", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#8", "kind": "offtopic_or_service", "split": "train"}
-{"text": "w", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-0#9", "kind": "offtopic_or_service", "split": "train"}
 {"text": "Good morning, hope you are well today", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-1#0", "kind": "offtopic_or_service", "split": "train"}
 {"text": "Thanks so much for your help yesterday", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-1#1", "kind": "offtopic_or_service", "split": "train"}
 {"text": "ok received, I will try it", "label": "other", "group": "greetings_thanks", "source_id": "greetings_thanks-1#10", "kind": "offtopic_or_service", "split": "train"}
