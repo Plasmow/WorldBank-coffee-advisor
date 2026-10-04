@@ -284,10 +284,9 @@ main{display:grid;grid-template-columns:minmax(320px,520px) minmax(240px,290px) 
     </div>
     <div class="event" id="event" hidden></div>
     <div class="chips" id="chips">
-      <button class="chip" data-msg="Butto w&#39;emicungwa wansi w&#39;ebikoola">Orange powder under leaves</button>
-      <button class="chip" data-msg="Amabala ga kitaka, ebikoola bikalu">Brown spots, leaves dry</button>
-      <button class="chip" data-msg="Waliwo ekikyamu">Something is wrong</button>
-      <button class="chip" data-msg="Ebinnya mu butunda">Holes in berries</button>
+      <button class="chip" data-msg="Enfuufu ya orange wansi w&#39;amakoola okumala wiiki ssatu kati. Amakoola gakuba buli wamu.">Orange powder under leaves</button>
+      <button class="chip" data-msg="Ebikoola bikala era ne bifuna ebifo ebya kitaka. Kati ekibanja kyonna kikoseddwa.">Leaves drying with dark spots</button>
+      <button class="chip" data-msg="Nakaza emmwanyi zange okumala wiiki bbiri. Kati etuuse okutunda?">A question about selling</button>
     </div>
     <div class="chips" id="chipsKw">
       <button class="chip kw" data-msg="PRICE">PRICE</button>
@@ -588,11 +587,11 @@ async function typeSend(text){
 }
 const SCRIPT=[
   async()=>{ await sleep(1200); },
-  async()=>{ await typeSend("Butto w'emicungwa wansi w'ebikoola"); await sleep(2200); },
+  async()=>{ await typeSend("Enfuufu ya orange wansi w'amakoola okumala wiiki ssatu kati. Amakoola gakuba buli wamu."); await sleep(2200); },
   async()=>{ await setTime('day',1); await sleep(3000); },
   async()=>{ const n0=serviceCount(); await setTime('evening',3); await waitForReply(n0,15000); await sleep(2000); await typeSend('3'); await sleep(2500); },
-  async()=>{ await setTime('evening',4); await sleep(1000); await typeSend('Waliwo ekikyamu'); await sleep(1800); await typeSend("Obuwunga obwa kyenvu wansi w'ebikoola"); await sleep(2500); },
-  async()=>{ await typeSend('Ebinnya mu butunda'); await sleep(2500); },
+  async()=>{ await setTime('evening',4); await sleep(1000); await typeSend("Ebikoola bikala era ne bifuna ebifo ebya kitaka. Kati ekibanja kyonna kikoseddwa."); await sleep(1800); await typeSend("Enfuufu ya orange wansi w'amakoola. Amakoola gagwa."); await sleep(2500); },
+  async()=>{ await typeSend("Nakaza emmwanyi zange okumala wiiki bbiri. Kati etuuse okutunda?"); await sleep(2500); },
   async()=>{ await setTime('morning',5); await sleep(1200); await typeSend('PRICE'); await sleep(2000); },
 ];
 async function play(){
