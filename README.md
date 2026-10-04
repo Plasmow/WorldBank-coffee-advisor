@@ -86,8 +86,62 @@ curl -s -XPOST localhost:8000/api/demo/send -H 'content-type: application/json' 
      -d "{\"phone\":\"$P\",\"text\":\"3\"}"                      # worse -> an agent is paged
 ```
 
-## Deploy
+## Deploy on Replit
 
-Replit, one worker, one instance. `.replit` is committed; set the environment
-variables as Replit secrets, never in the repo. The background scheduler loop
-dies when the instance sleeps, so `run_due()` also runs on every demo request.
+`.replit` is committed. Everything else is three steps.
+
+### 1. Pick Reserved VM, not Autoscale
+
+Reserved VM in the deployment UI, 2 GB of RAM at the very least — the
+translation model alone peaks around 1.5 GB resident.
+
+This is not a preference. Autoscale gives each instance a fresh filesystem and
+scales to zero, so every cold start re-downloads the 621 MB model before it can
+answer anything, and the gateway has long given up by then. Reserved VM keeps
+its disk and never sleeps, which also keeps the background scheduler alive.
+(`run_due()` still runs on every demo request anyway — belt and braces.)
+
+### 2. Ship the model through the Hugging Face Hub
+
+`model.bin` is 594 MB. GitHub refuses anything over 100 MB and weights do not
+belong in git, so the Hub is the delivery channel. Once, from a laptop that has
+already run `scripts/convert_nllb_ct2.py`:
+
+```bash
+uv run hf auth login                          # needs a write token
+uv run hf upload <user>/nllb-200-distilled-600M-ct2-int8 model/nllb-ct2-int8 .
+```
+
+The three arguments are the repo, the local folder, and where it lands inside
+the repo (`.` is the root). Keep the repo public, or add a read-only `HF_TOKEN`
+secret — `huggingface_hub` picks it up from the environment on its own.
+
+`ai.translate._ensure_model()` downloads it on first boot and only if
+`model.bin` is not already on disk, so this costs nothing locally.
+
+### 3. Secrets
+
+Set these in the Replit Secrets pane, never in the repo:
+
+```
+AT_USERNAME, AT_API_KEY, AT_SHORTCODE    Africa's Talking sandbox
+AGENT_PHONE                              where the human safety net is paged
+FRONTEND_ORIGIN                          the Lovable page origin, for CORS
+USE_REAL_AI=1                            once ai/analyze.py exposes analyze()
+NLLB_CT2_REPO                            the Hub repo from step 2
+DEMO_MODE=1                              keeps every SMS off the real gateway
+```
+
+### Check it
+
+```bash
+curl https://<app>.replit.app/health
+# {"ok":true,"rss_mb":1422.3,"ai":{"enabled":true,"loaded":true,"seconds":2.6}}
+```
+
+`"loaded": false` comes with an `error` field saying why. The server boots
+either way: a missing model is a degraded demo, a boot crash is no demo.
+
+Then point the Africa's Talking sandbox at `https://<app>.replit.app/sms`
+(and `/ussd` for the menu) and send a message from the simulator. That, not a
+green test suite, is what proves the backend is live.
