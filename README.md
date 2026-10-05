@@ -1,257 +1,262 @@
 # Coffee Advisor
 
-**An SMS crop-disease advisor for smallholder coffee farmers on basic phones, in Luganda and English.**
+An SMS crop-disease advisor for smallholder coffee farmers in Uganda, built around
+an 80 MB Luganda-to-English translator that runs on a CPU.
 
-Built for the Hack-Nation × World Bank challenge *Small AI for Development* (Agriculture track).
+## Status
 
-Noor grows arabica on Mount Elgon, Uganda. She has a basic phone, no data plan,
-and speaks Luganda. She texts what she sees on her plants; Coffee Advisor
-answers by SMS with vetted advice, asks one question when the message is
-unclear, and hands her over to a human extension agent whenever it is not sure.
+Prototype written for the Hack-Nation x World Bank challenge *Small AI for
+Development* (Agriculture track), October 2026, by a team of three. **It was not
+submitted in time, and it is not deployed anywhere.** What is here runs locally,
+end to end, with the demo page standing in for the SMS gateway. The only artefact
+published outside this repository is the translator:
+[Adom4600/opus-lg-en-coffee-ct2](https://huggingface.co/Adom4600/opus-lg-en-coffee-ct2).
 
-- **Small AI only**: a 600M-parameter translator quantized to int8, a 33M-parameter
-  embedder with a calibrated linear head, and an optional 3B local LLM as a
-  second opinion. Everything runs on a CPU, no cloud LLM ever talks to the farmer.
-- **No generated text reaches the farmer**: the models only pick an id; every
-  reply is a fixed, reviewed template from `data/templates.json`.
-- **Human in the loop**: unclear twice, out of scope, or "3 = worse" at the
-  follow-up three days later, and the agent is paged by SMS.
-- **Works on any phone**: SMS and USSD through Africa's Talking, plus `PRICE`
-  (official UCDA prices, no AI), `HELP`, `STOP` / `START`.
+## The problem
 
-## Repository
+Noor grows arabica on the slopes of Mount Elgon. She has a basic phone, no data
+plan, and speaks Luganda. When something appears on her coffee leaves there is no
+agronomist within reach, and the two diseases that matter most to her yield --
+coffee leaf rust and brown eye spot (phoma) -- look alike to an untrained eye but
+need different responses. A smartphone app, a camera, or an agronomist on call are
+all out of scope for her. SMS is not.
 
-<<<<<<< HEAD
-```bash
-uv venv --python 3.12            # uv fetches 3.12 itself, no pyenv needed
-uv pip install -r requirements-ai.txt
-uv run python scripts/fetch_models.py      # translator (~80 MB) + e5-small
-ollama pull qwen2.5:3b                     # optional: the LLM second opinion
-cp .env.example .env                       # then fill in AT_API_KEY and AGENT_PHONE
-uv run uvicorn app.main:app --reload
-=======
->>>>>>> 67abd3e46b7a98681f5585ccb36c4b7132d48ecb
-```
-app/      FastAPI backend: SMS/USSD webhooks, router, SQLite, scheduler, demo API
-ai/       the AI chain: language id, translation, classifier, LLM second opinion
-data/     reply templates (en, lg), coffee prices, synthetic training data, embeddings
-model/    the trained classifier head (numpy) and its labels/threshold
-scripts/  data generation, training, evaluation, model download and conversion
-web/      the demo page (phone simulator + agent view), served at /demo
-docs/     datasheet of the data and the model
-deploy/   Render blueprint notes, systemd unit and Caddyfile for a VM
-tests/    pytest suite (models stubbed, runs in seconds)
-```
+## How it works
 
-## Endpoints
+Noor texts freely, in Luganda or English. The message is translated, classified,
+and answered with a **fixed template**: no generated text is ever sent to a farmer.
+When the system is not sure, a human is.
 
-| | |
-|---|---|
-| `POST /sms` | Africa's Talking webhook (form: `from`, `text`, `id`). Always answers `200` immediately; the analysis runs after the response. |
-| `POST /ussd` | USSD menu (form: `phoneNumber`, `text`). 1 prices, 2 report a symptom, 3 talk to an agent. |
-| `GET /health` | liveness, peak memory, and whether the models are loaded |
-| `GET /demo` | `web/index.html` when it exists, otherwise a backend-is-up page |
-| `POST /api/demo/send` | `{phone, text}` — drives a demo number without touching the gateway |
-| `GET /api/demo/state?phone=` | the whole transcript: messages with their analysis, plus agent alerts and follow-ups |
-| `POST /api/demo/clock` | `{phone, day 0-6, slot morning\|day\|evening\|night}` — jump this visitor's clock |
-| `POST /api/demo/reset` | `{phone}` |
-
-## The AI chain
-
-```
-SMS -> keyword? (PRICE/HELP/AGENT/STOP/START, 1/2/3) -> direct reply, no AI
-    -> price question in free text?                   -> prices.json, no AI
-    -> Luganda? -> Opus-MT lg->en fine-tune (CT2 int8) + glossary     -> English
-    -> e5-small-v2 + calibrated logistic regression   -> label, proba
-    -> qwen2.5:3b via Ollama (JSON schema, temp 0)    -> label, which question to ask
-    -> answer   if proba >= 0.8 and both agree        -> advice template, follow-up at D+3
-       clarify  otherwise, once                       -> the question the LLM picked
-       escalate still unsure, or "other"              -> "not sure" + SMS to the agent
+```mermaid
+flowchart TD
+    A[Incoming SMS] --> B{Keyword?<br/>PRICE HELP AGENT STOP START}
+    B -->|yes| C[Fixed reply, no AI<br/>prices from data/prices.json]
+    B -->|no| D[Luganda? -> Opus-MT lg-en<br/>CTranslate2 int8 + glossary]
+    D --> E[e5-small-v2 embedding<br/>+ calibrated logistic head]
+    E --> F{p >= 0.8 ?}
+    F -->|yes| G[Advice template<br/>leaf_rust / phoma / healthy]
+    F -->|unclear, first time| H[One clarifying question]
+    H --> E
+    F -->|still unsure, or 'other'| I["'I am not sure' to Noor<br/>+ SMS to the extension agent"]
+    G --> J[Follow-up 3 days later, 18:00-20:00 UTC+3]
+    J -->|reply '3 = worse'| I
 ```
 
-- Every word sent to Noor comes from `data/templates.json` (English and
-  Luganda, `lg_verified: false` until a native speaker checks them). The models
-  only choose a template id. Replies follow the language of her last message.
-- `other` is never answered. A price question, by keyword or in free text
-  ("Emmwanyi zigula ssente mmeka leero?"), gets `prices.json` in a fixed
-  wrapper and never reaches a model.
-- The translator is our own Opus-MT fine-tuned on SALT plus agricultural
-  SMS, converted to CTranslate2 int8: 81 MB on disk, 2.2 s to load, 105 ms a
-  message, chrF 65.0 on `data/synthetic/domain_pairs.jsonl`
-  (`python scripts/eval_translate.py`). It replaced NLLB-200-600M, which was
-  600 MB and rendered "my coffee is fine" as "my oil is good".
-- It only goes Luganda to English. Everything sent to Noor is written by hand
-  in `data/templates.json`; `en_to_lug` raises rather than invent a reply.
-- `ai/translate.py` appends the English of the farming words it recognises, so
-  the classifier still sees "powder, orange, underneath" even on a bad line.
-  A model that cannot be loaded returns the Luganda untouched: the glossary
-  carries the message and Noor gets a clarifying question, never silence.
-- The classifier head is read from `model/classifier.npz` (numpy, no sklearn
-  at runtime). Re-export it after retraining: `python scripts/export_classifier.py`.
-- No Ollama reachable: the calibrated classifier answers alone (plan B of the
-  roadmap) and the generic question is used. Anything that throws sends the
-  farmer to a human.
+Three exchanges, copied from a local run (templates are in `data/templates.json`):
 
-`USE_REAL_AI=0` swaps the whole chain for a keyword stand-in, so the backend
-boots and the tests pass without any model.
+**A clear symptom, in Luganda**
 
-## Environment
+> **Noor** — Ebikoola by'emmwanyi zange birina obuwunga bwa kacungwa wansi
+> **Advisor** — Kirabika kukwata kwa kutalagga ku bikoola (leaf rust). Noga ebikoola ebyonoonese obiziike, sala amatabi, koola, teekamu nakavundira. Buuza omulimisa.
 
-See `.env.example`.
+**An unclear symptom: exactly one question, then an answer**
 
-| variable | |
-|---|---|
-| `AT_USERNAME`, `AT_API_KEY`, `AT_SHORTCODE` | Africa's Talking. `sandbox` uses the sandbox API; leave the shortcode empty there |
-| `AGENT_PHONE` | where the human safety net is paged |
-| `DEMO_MODE` | `1` keeps every SMS off the gateway. `0` on the deployed server |
-| `USE_REAL_AI` | `1` = the chain above, `0` = keyword stand-in |
-| `USE_LLM`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT` | the second opinion |
-| `TRANSLATOR_DIR`, `TRANSLATOR_REPO` | translator folder / Hub repo it is fetched from (default `Adom4600/opus-lg-en-coffee-ct2`) |
-| `CLASSIFIER_THRESHOLD` | overrides `model/labels.json` |
-| `DB_PATH` | SQLite file, default `data/app.db` |
-| `FRONTEND_ORIGIN` | CORS origin of the Lovable page |
-| `DEMO_LIVE_PHONE` | one real number the demo page may drive through the gateway |
-| `GOOGLE_TRANSLATE_API_KEY` | optional: English subtitles of the Luganda conversation on the demo page. Empty = Google's free endpoint |
+> **Noor** — there are spots on my coffee leaves
+> **Advisor** — Please tell me more: which part of the coffee plant is affected, and what do you see on it?
+> **Noor** — they have orange powder underneath
+> **Advisor** — Looks like coffee leaf rust. Pick off badly hit leaves and bury them, prune and weed for air, add manure. Ask your agent about a copper spray.
 
-Numbers starting `+256799` are demo numbers: their clock is simulated and
-nothing addressed to them ever reaches Africa's Talking. The `/api/demo/*`
-endpoints refuse every other number, because they are public once deployed.
-`DEMO_LIVE_PHONE` opens exactly one exception, taken from the environment,
-never from the request.
+**The follow-up, three days later**
 
-## Try the whole journey
+> **Advisor** — How are your coffee plants 3 days on? Reply 1 better, 2 same, 3 worse.
+> **Noor** — 3
+> **Advisor** — Sorry to hear that. A field agent has been alerted and will call you.
+>
+> *(and to the agent: `+256799444555 needs a human. follow-up: getting worse`, with the original message and its English translation)*
 
-```bash
-P=+256799123456
-curl -s -XPOST localhost:8000/api/demo/send -H 'content-type: application/json' \
-     -d "{\"phone\":\"$P\",\"text\":\"my coffee leaves have orange powder\"}"
-curl -s -XPOST localhost:8000/api/demo/clock -H 'content-type: application/json' \
-     -d "{\"phone\":\"$P\",\"day\":3,\"slot\":\"evening\"}"      # the follow-up goes out
-curl -s -XPOST localhost:8000/api/demo/send -H 'content-type: application/json' \
-     -d "{\"phone\":\"$P\",\"text\":\"3\"}"                      # worse -> an agent is paged
-```
+Replies follow the language of Noor's last message. The Luganda templates are
+hand-written and carry `lg_verified: false`: **no native speaker has reviewed them yet.**
 
-## Deploy on Render
+## Small AI
 
-`render.yaml` is a Blueprint: **New > Blueprint**, pick the repo, then fill in
-the secrets it asks for (`AT_API_KEY`, `AGENT_PHONE`, optionally
-`OLLAMA_HOST`, `DEMO_LIVE_PHONE`).
+Measured on this machine (Apple Silicon, CPU only) on 2026-10-05, with
+`python scripts/eval_translate.py -n 50` and `GET /health`:
 
-- **Plan: Standard (2 GB).** The translator alone is small enough for the
-  free plan, but e5-small and its torch are not.
-- **Build** installs `requirements-ai.txt` (CPU-only torch) and runs
-  `scripts/fetch_models.py`, which downloads the translator (~80 MB) and
-  e5-small into the project folder. A boot then only reads from disk (~30 s), in a
-  background thread: `/health` answers at once and shows `"loading": true`
-  until the models are in.
-- **The LLM** needs an Ollama server Render can reach: set `OLLAMA_HOST` to,
-  e.g., a laptop running `ollama serve` behind `cloudflared tunnel --url
-  http://localhost:11434`. Without it the classifier answers alone.
+| | on disk | load | per SMS |
+|---|---|---|---|
+| Translator (Opus-MT lg-en, CTranslate2 int8) | 81 MB | 2.6 s | 105 ms median, 146 ms worst |
+| Classifier head (`model/classifier.npz`, numpy) | 8 KB | instant | included below |
+| Embedder (e5-small-v2, 33M params) | 257 MB as downloaded, several weight formats | — | — |
 
-Check it, then point the sandbox at it:
+Resident memory for the whole chain once warm: **659 MB** (translator + embedder +
+CPU torch). The translator alone peaks at 543 MB in the evaluation process, which
+is why it, and not the embedder, is the part that could fit a 512 MB instance.
 
-```bash
-curl https://<app>.onrender.com/health
-# {"ok":true,"rss_mb":1371.6,"ai":{"loaded":true,"loading":false,"seconds":26.8,"enabled":true}}
-```
+End-to-end accuracy -- Luganda in, label out -- is **85.7% on the 84 held-out
+pairs** (leaf_rust 92%, phoma 81%, other 86%) and **78% on `data/eval/hard_test.csv`**.
+Those figures and their caveats are in [`docs/datasheet.md`](docs/datasheet.md).
 
-In the Africa's Talking sandbox: **SMS > SMS Callback URLs > Incoming
-messages** = `https://<app>.onrender.com/sms`, and the USSD callback =
-`https://<app>.onrender.com/ussd`. Then send a message from the simulator.
+## The translator
 
-## Install and run locally
+`Helsinki-NLP/opus-mt-lg-en` (MarianMT, ~77M parameters, Apache-2.0) is weak on
+everyday and agricultural Luganda: its OPUS training data is largely religious
+text. It was fine-tuned on:
 
-You need Python 3.10+ (3.12 recommended), about 4 GB of free disk and 2 GB of
-RAM for the full chain. The commands use [`uv`](https://docs.astral.sh/uv/);
-plain `python -m venv` + `pip` work the same way.
+- **SALT** ([`Sunbird/salt`](https://huggingface.co/datasets/Sunbird/salt), config
+  `text-all`, CC BY-SA 4.0): 23,947 training pairs, 496 dev, 500 test
+  (`lug_text` -> `eng_source_text`).
+- **Synthetic agricultural SMS**: English SMS generated with Claude
+  (`scripts/gen_sms_en.py`, 8 weighted topics, <= 150 characters, never naming a
+  disease), back-translated to Luganda through the Sunbird API. 264 training pairs
+  (repeated x3) and 50 test pairs. **These are synthetic, not real farmer messages.**
 
-**1. Dependencies**
+Training: Colab T4, 5 epochs, lr 5e-5, batch 32, 100 warmup steps, fp16, best
+checkpoint on dev loss ([`finetune_lg_en.py`](finetune_lg_en.py); the run itself
+happened outside this repository). Exported to CTranslate2 int8: ~300 MB becomes
+~80 MB and needs no torch at inference.
+
+Base model against fine-tune, fp16, beam 2, on held-out sets:
+
+| test set | chrF before -> after | BLEU before -> after |
+|---|---|---|
+| SALT test (500 sentences, general) | 34.0 -> **46.7** | 12.3 -> **24.9** |
+| Agricultural SMS (50 sentences) | 25.2 -> **60.1** | 5.3 -> **43.6** |
+
+Read these carefully:
+
+- The SMS row is **optimistic**. Its Luganda comes from the same API used to build
+  the training set, and the English SMS are Claude-generated and resemble one
+  another. **The trustworthy number is the +12.7 chrF on SALT.**
+- Synthetic Luganda is cleaner than real SMS: no typos, no abbreviations, no
+  code-switching with English.
+- Scores were computed on the fp16 model with beam 2, **before** the int8
+  conversion. They were never recomputed after it.
+- No native speaker has evaluated the output.
+- `data/synthetic/domain_pairs.jsonl` is **not** a held-out test set: 230 of its
+  314 lines are training rows. `scripts/eval_translate.py` scores against it for
+  smoke-testing (chrF 69.5 today), and that number means nothing as an evaluation.
+- `eng_source_text` and `eng_target_text` both exist in SALT; the choice between
+  them was never argued.
+
+Reproduce: `python scripts/eval_translate.py` (needs `sacrebleu`, a dev dependency
+on purpose -- the server never scores anything).
+
+## Design decisions
+
+**SMS, not an app.** The user we designed for has a feature phone and no data plan.
+Everything else follows from that: 160 characters, no images, no UI.
+
+**No computer vision.** Rust and phoma are visually distinguishable, and there is a
+public Mendeley dataset of Ugandan coffee leaves -- but Noor has no usable camera
+and no way to send a photo. We used the leaf images only to generate text
+descriptions for training data, never as a runtime input.
+
+**Fixed templates, never generated text.** The models choose a template id; the
+wording was written once and can be reviewed by an agronomist. A wrong template is
+a known, bounded failure. A hallucinated spraying instruction is not.
+
+**A human in the loop, as a hard requirement.** `other`, an unresolved ambiguity,
+or "worse" at the follow-up pages the extension agent by SMS, with the original
+Luganda and its English translation.
+
+**Opus-MT fine-tuned, not NLLB-200-600M.** NLLB was the first choice and is still
+visible in the git history. It weighed ~600 MB even in int8, was poor on
+agricultural Luganda (it rendered "my coffee is fine" as "my oil is good"), and its
+licence is non-commercial. The 80 MB fine-tune replaced it.
+
+**No LLM in production.** A ~3 GB local LLM was tried as a second opinion on the
+classifier's label. It did not fit the memory budget we were aiming for, it
+contradicts the "Small AI" premise, and its benefit was never measured. It is still
+wired in behind `USE_LLM`, and is on the list to move out of the execution path.
+
+## Run locally
+
+Python 3.10+ (3.12 recommended). The commands use
+[`uv`](https://docs.astral.sh/uv/); `python -m venv` and `pip` work the same way.
 
 ```bash
 git clone https://github.com/Plasmow/WorldBankAgriculture.git
 cd WorldBankAgriculture
 uv venv --python 3.12
-uv pip install -r requirements-ai.txt     # full chain: CTranslate2, transformers, CPU torch, ollama
-# or: uv pip install -r requirements.txt  # web server only, keyword stand-in (USE_REAL_AI=0)
-```
-
-**2. Models.** Weights are never in git. Pick one of the two ways to get the
-translator, quantized to int8:
-
-```bash
-# a) download a ready-made int8 conversion (~620 MB) + tokenizer + e5-small-v2
-uv run python scripts/fetch_models.py
-
-# b) or quantize it yourself from facebook/nllb-200-distilled-600M
-#    (downloads ~2.4 GB, writes ~600 MB into model/nllb-ct2-int8/)
-uv pip install -r requirements-convert.txt
-uv run python scripts/convert_nllb_ct2.py   # ct2-transformers-converter --quantization int8
-uv run python scripts/fetch_models.py       # still needed for the tokenizer and e5-small-v2
-```
-
-The classifier head (`model/classifier.npz`) is already in the repo. To
-rebuild it from the data (optional; needs `scikit-learn scipy joblib
-sentence-transformers`):
-
-```bash
-uv pip install scikit-learn scipy joblib sentence-transformers
-uv run python scripts/extract_embeddings.py
-uv run python scripts/train_classifier.py
-uv run python scripts/evaluate.py
-uv run python scripts/export_classifier.py   # joblib -> numpy, what the server reads
-```
-
-The LLM second opinion is optional. Install [Ollama](https://ollama.com), then:
-
-```bash
-ollama pull qwen2.5:3b      # ~1.9 GB, already 4-bit quantized (Q4_K_M)
-ollama serve                # if it is not already running as a service
-```
-
-Without Ollama the calibrated classifier answers alone and uncertain cases
-still go to the agent.
-
-**3. `.env`.** Copy `cp .env.example .env` and fill it in. For a fully local
-run, with no SMS ever leaving the machine:
-
-```dotenv
-# Africa's Talking: any value works while DEMO_MODE=1
-AT_USERNAME=sandbox
-AT_API_KEY=your-sandbox-api-key
-AT_SHORTCODE=
-AGENT_PHONE=+256700000099        # the extension agent paged by the safety net
-
-DEMO_MODE=1                      # 1 = never call Africa's Talking
-USE_REAL_AI=1                    # 0 = keyword stand-in, no model needed
-USE_LLM=1                        # 0 = skip the Ollama second opinion
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:3b
-NLLB_CT2_REPO=JustFrederik/nllb-200-distilled-600M-ct2-int8
-
-GOOGLE_TRANSLATE_API_KEY=        # optional, English subtitles for judges on /demo
-FRONTEND_ORIGIN=*
-DB_PATH=data/app.db
-```
-
-To send real SMS through the Africa's Talking sandbox, set `DEMO_MODE=0`,
-your sandbox `AT_API_KEY`, and point the sandbox's incoming-SMS callback at
-`<public-url>/sms` (e.g. through `cloudflared tunnel --url http://localhost:8000`).
-
-**4. Run**
-
-```bash
+uv pip install -r requirements-ai.txt      # full chain; requirements.txt alone = translator only
+uv run python scripts/fetch_models.py      # translator (~80 MB) + e5-small-v2
+cp .env.example .env                       # DEMO_MODE=1 keeps every SMS off the gateway
 uv run uvicorn app.main:app --reload
 ```
 
-- `http://localhost:8000/demo`: the phone simulator, the agent's view, and a
-  clock to jump to the day-3 follow-up
-- `http://localhost:8000/health`: shows `"loaded": true` once the models are in (~30 s)
-- `http://localhost:8000/docs`: the API
+Model weights are never committed. The first boot downloads them and reads them in
+a background thread: `/health` answers immediately and reports `"loading": true`
+until the chain is in (5.3 s from warm disk here).
 
-**5. Tests**
+Then open `http://localhost:8000/demo` -- a phone simulator, the agent's view, and a
+clock you can move. Or walk the whole journey from a terminal:
 
 ```bash
-uv run pytest -q                                          # models stubbed, seconds
-RUN_MODEL_TESTS=1 uv run pytest -q tests/test_models.py   # the real models (~1 min)
-uv run python scripts/report_chain.py                     # quality report on Luganda and English cases
+P=+256799123456
+send() { curl -s -XPOST localhost:8000/api/demo/send \
+         -H 'content-type: application/json' -d "{\"phone\":\"$P\",\"text\":\"$1\"}"; }
+
+send "Ebikoola by'emmwanyi zange birina obuwunga bwa kacungwa wansi"  # 1. Luganda symptom -> leaf rust advice
+send "there are spots on my coffee leaves"                            # 2. unclear -> one question
+send "they have orange powder underneath"                             # 3. answered -> advice
+curl -s -XPOST localhost:8000/api/demo/clock -H 'content-type: application/json' \
+     -d "{\"phone\":\"$P\",\"day\":3,\"slot\":\"evening\"}"            # 4. day 3, evening -> follow-up goes out
+send "3"                                                              # 5. worse -> the agent is paged
+send "PRICE"                                                          # 6. UCDA prices, no AI
+curl -s "localhost:8000/api/demo/state?phone=$P"                      # the whole transcript + agent alerts
 ```
+
+Numbers starting `+256799` are demo numbers: their clock is simulated and nothing
+addressed to them ever reaches Africa's Talking. The `/api/demo/*` endpoints refuse
+every other number.
+
+Tests, with every model stubbed, run in seconds and need no network:
+
+```bash
+uv run pytest -q                                          # 233 passed, 14 skipped
+RUN_MODEL_TESTS=1 uv run pytest -q tests/test_models.py    # the real models, ~1 min
+```
+
+## Repository layout
+
+```
+app/        FastAPI backend: /sms and /ussd webhooks, router, SQLite, scheduler, demo API
+ai/         the chain: language id, translation + glossary, classifier, LLM second opinion
+data/       reply templates (en, lg), UCDA prices, synthetic training data, embeddings
+model/      the classifier head (numpy) and its labels/threshold; weights are gitignored
+scripts/    data generation, training, evaluation, model download
+web/        the demo page: phone simulator and agent view, served at /demo
+docs/       datasheet for the data and the models, UCDA price reports
+deploy/     Render blueprint notes, systemd unit, Caddyfile -- written, never used
+tests/      pytest suite, models stubbed
+```
+
+Environment variables are documented in `.env.example`.
+
+## Costs
+
+An order of magnitude, **not a quote** -- re-check against Africa's Talking current
+pricing before trusting it: about 35 UGX per SMS sent and 65 UGX per SMS received on
+a shared shortcode. At a few exchanges per season that is roughly **1 USD per farmer
+per year**, which is the number that would decide whether a cooperative could run this.
+
+## Limitations and next steps
+
+- No real farmer SMS have ever reached this system; every message it was built and
+  measured on is synthetic or hand-written.
+- No native Luganda speaker has reviewed the templates (`lg_verified: false`) or the
+  translator's output.
+- The published scores are the fp16 model; the int8 conversion that actually runs
+  in production was never re-scored.
+- The classifier knows four labels. Everything else is `other`, which means a human.
+- Next: a pilot with a cooperative, native-speaker review, evaluation on real
+  messages, and USSD for farmers who find SMS costly.
+
+## Data, licences, credits
+
+| | |
+|---|---|
+| [SALT](https://huggingface.co/datasets/Sunbird/salt) | Sunbird AI, CC BY-SA 4.0 |
+| [`Helsinki-NLP/opus-mt-lg-en`](https://huggingface.co/Helsinki-NLP/opus-mt-lg-en) | Helsinki-NLP, Apache-2.0 |
+| [`Adom4600/opus-lg-en-coffee-ct2`](https://huggingface.co/Adom4600/opus-lg-en-coffee-ct2) | this project, CC BY-SA 4.0 (inherited from SALT) |
+| [Coffee leaf disease images](https://data.mendeley.com/datasets/k36wnd6knb/1) | Chelangat, Anirwoth, Mayanja, Sserwadda (2025), Mendeley Data V1, CC BY 4.0 -- used only to generate text descriptions |
+| [`intfloat/e5-small-v2`](https://huggingface.co/intfloat/e5-small-v2) | MIT |
+| Coffee prices | UCDA indicative farm-gate prices, see `docs/` |
+| Synthetic SMS | generated with Claude, `scripts/gen_sms_en.py` |
+
+Code in this repository is MIT-licensed, see [LICENSE](LICENSE).
+
+## Team
+
+Adam, Ilias and Ela, one weekend, across three areas: data and classifier,
+backend and SMS gateway, AI chain and front end.

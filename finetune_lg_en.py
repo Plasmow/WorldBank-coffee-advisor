@@ -116,7 +116,7 @@ dev_tok = salt_dev.map(prep, batched=True, remove_columns=salt_dev.column_names)
 args = Seq2SeqTrainingArguments(          # transformers v5 : warmup_steps (warmup_ratio n'existe plus)
     output_dir="/content/ckpt", learning_rate=5e-5,
     per_device_train_batch_size=32, per_device_eval_batch_size=64,
-    num_train_epochs=3, warmup_steps=100, weight_decay=0.01, fp16=True,
+    num_train_epochs=5, warmup_steps=100, weight_decay=0.01, fp16=True,
     eval_strategy="epoch", save_strategy="epoch", save_total_limit=1,
     load_best_model_at_end=True, metric_for_best_model="eval_loss", greater_is_better=False,
     logging_steps=50, report_to="none")
